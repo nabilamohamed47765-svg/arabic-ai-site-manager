@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>لوحة التحكم - Arabic AI Site Manager</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: #0f172a;
+      color: #f8fafc;
+      font-family: Arial, sans-serif;
+    }
+
+    .header {
+      background: #1e293b;
+      padding: 18px;
+      border-bottom: 1px solid #334155;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .header-inner {
+      max-width: 1100px;
+      margin: auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 15px;
+    }
+
+    .brand {
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    .user {
+      color: #94a3b8;
+      font-size: 13px;
+      margin-top: 5px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 10px;
+      padding: 12px 16px;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .logout {
+      background: #ef4444;
+    }
+
+    main {
+      max-width: 1100px;
+      margin: auto;
+      padding: 20px;
+    }
+
+    .hero {
+      background: linear-gradient(
+        135deg,
+        #1e293b,
+        #172554
+      );
+
+      padding: 25px;
+      border-radius: 18px;
+      margin-bottom: 20px;
+    }
+
+    .hero h1 {
+      margin: 0 0 10px;
+      font-size: 26px;
+    }
+
+    .hero p {
+      margin: 0;
+      color: #cbd5e1;
+      line-height: 1.8;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns:
+        repeat(auto-fit, minmax(150px, 1fr));
+
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .stat {
+      background: #1e293b;
+      padding: 20px;
+      border-radius: 15px;
+    }
+
+    .stat-number {
+      font-size: 28px;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    .stat-label {
+      color: #94a3b8;
+      font-size: 13px;
+    }
+
+    .section {
+      background: #1e293b;
+      padding: 20px;
+      border-radius: 16px;
+      margin-bottom: 20px;
+    }
+
+    .section-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
+      gap: 10px;
+    }
+
+    .section-title h2 {
+      margin: 0;
+      font-size: 20px;
+    }
+
+    .add {
+      background: #22c55e;
+    }
+
+    .site-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .site {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 16px;
+    }
+
+    .site-name {
+      font-size: 18px;
+      font-weight: bold;
+    }
+
+    .site-host {
+      color: #94a3b8;
+      margin-top: 7px;
+      direction: ltr;
+      text-align: right;
+    }
+
+    .badge {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 5px 9px;
+      border-radius: 20px;
+      background: #14532d;
+      color: #86efac;
+      font-size: 12px;
+    }
+
+    .empty {
+      text-align: center;
+      padding: 35px 15px;
+      color: #94a3b8;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 100;
+      padding: 20px;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal.active {
+      display: flex;
+    }
+
+    .modal-box {
+      width: 100%;
+      max-width: 500px;
+      background: #1e293b;
+      border-radius: 18px;
+      padding: 22px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .modal-box h2 {
+      margin-top: 0;
+    }
+
+    label {
+      display: block;
+      margin-top: 14px;
+      margin-bottom: 6px;
+      color: #cbd5e1;
+      font-size: 13px;
+    }
+
+    input {
+      width: 100%;
+      padding: 13px;
+      border: 1px solid #475569;
+      border-radius: 10px;
+      background: #0f172a;
+      color: white;
+      font-size: 15px;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .save {
+      flex: 1;
+      background: #22c55e;
+    }
+
+    .cancel {
+      flex: 1;
+      background: #475569;
+    }
+
+    #message {
+      margin-bottom: 15px;
+      padding: 12px;
+      border-radius: 10px;
+      display: none;
+    }
+
+    .error {
+      display: block !important;
+      background: #450a0a;
+      color: #fca5a5;
+    }
+
+    .success {
+      display: block !important;
+      background: #052e16;
+      color: #86efac;
+    }
+
+    .loading {
+      text-align: center;
+      color: #94a3b8;
+      padding: 20px;
+    }
+
+    @media (max-width: 600px) {
+      .header-inner {
+        align-items: flex-start;
+      }
+
+      .brand {
+        font-size: 17px;
+      }
+
+      .hero h1 {
+        font-size: 22px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<header class="header">
+  <div class="header-inner">
+
+    <div>
+      <div class="brand">
+        🤖 Arabic AI Site Manager
+      </div>
+
+      <div class="user" id="userEmail">
+        جاري تحميل الحساب...
+      </div>
+    </div>
+
+    <button
+      class="logout"
+      onclick="logout()">
+      تسجيل الخروج
+    </button>
+
+  </div>
+</header>
+
+
+<main>
+
+  <section class="hero">
+
+    <h1>
+      أهلاً بك 👋
+    </h1>
+
+    <p>
+      من هنا ستدير مواقعك وتتواصل مع مدير الذكاء الاصطناعي
+      لتنفيذ المهام البرمجية وإدارة المواقع.
+    </p>
+
+  </section>
+
+
+  <section class="stats">
+
+    <div class="stat">
+      <div
+        class="stat-number"
+        id="sitesCount">
+        0
+      </div>
+
+      <div class="stat-label">
+        المواقع
+      </div>
+    </div>
+
+
+    <div class="stat">
+
+      <div
+        class="stat-number">
+        0
+      </div>
+
+      <div class="stat-label">
+        المهام
+      </div>
+
+    </div>
+
+
+    <div class="stat">
+
+      <div
+        class="stat-number">
+        0
+      </div>
+
+      <div class="stat-label">
+        Backups
+      </div>
+
+    </div>
+
+  </section>
+
+
+  <section class="section">
+
+    <div class="section-title">
+
+      <h2>
+        🌐 مواقعك
+      </h2>
+
+      <button
+        class="add"
+        onclick="openModal()">
+        + إضافة موقع
+      </button>
+
+    </div>
+
+    <div id="message"></div>
+
+    <div
+      id="siteList"
+      class="site-list">
+
+      <div class="loading">
+        جاري تحميل المواقع...
+      </div>
+
+    </div>
+
+  </section>
+
+
+  <section class="section">
+
+    <div class="section-title">
+
+      <h2>
+        🤖 مدير الذكاء الاصطناعي
+      </h2>
+
+    </div>
+
+    <div class="empty">
+
+      <div style="font-size:45px;">
+        🧠
+      </div>
+
+      <h3>
+        الذكاء الاصطناعي قيد التجهيز
+      </h3>
+
+      <p>
+        سنضيف هنا المحادثة العربية وتنفيذ المهام
+        وتحليل المواقع في المرحلة التالية.
+      </p>
+
+    </div>
+
+  </section>
+
+</main>
+
+
+<!-- =========================
+     ADD SITE MODAL
+========================= -->
+
+<div
+  class="modal"
+  id="siteModal">
+
+  <div class="modal-box">
+
+    <h2>
+      ➕ إضافة موقع
+    </h2>
+
+    <p style="color:#94a3b8;font-size:13px;">
+      أدخل بيانات الاتصال الأساسية بالموقع.
+      بيانات SSH الحساسة لن يتم تخزينها هنا.
+    </p>
+
+
+    <label>
+      اسم الموقع
+    </label>
+
+    <input
+      id="siteName"
+      type="text"
+      placeholder="موقعي الرئيسي">
+
+
+    <label>
+      Hostname / IP
+    </label>
+
+    <input
+      id="hostname"
+      type="text"
+      placeholder="example.com">
+
+
+    <label>
+      SSH Port
+    </label>
+
+    <input
+      id="port"
+      type="number"
+      value="22"
+      min="1"
+      max="65535">
+
+
+    <label>
+      SSH Username
+    </label>
+
+    <input
+      id="username"
+      type="text"
+      placeholder="root">
+
+
+    <label>
+      مجلد الموقع
+    </label>
+
+    <input
+      id="workingDirectory"
+      type="text"
+      value="/"
+      placeholder="/var/www/html">
+
+
+    <div class="modal-actions">
+
+      <button
+        class="save"
+        onclick="addSite()">
+        حفظ الموقع
+      </button>
+
+      <button
+        class="cancel"
+        onclick="closeModal()">
+        إلغاء
+      </button>
+
+    </div>
+
+  </div>
+
+</div>
+
+
+<script>
+
+const tokenKey =
+  "arabic_ai_token";
+
+
+function getToken() {
+
+  return localStorage.getItem(
+    tokenKey
+  );
+
+}
+
+
+function logout() {
+
+  localStorage.removeItem(
+    tokenKey
+  );
+
+  window.location.href =
+    "/test-auth.html";
+}
+
+
+function showMessage(
+  text,
+  type = "success"
+) {
+
+  const element =
+    document.getElementById(
+      "message"
+    );
+
+  element.textContent =
+    text;
+
+  element.className =
+    type;
+}
+
+
+function openModal() {
+
+  document
+    .getElementById("siteModal")
+    .classList.add("active");
+
+}
+
+
+function closeModal() {
+
+  document
+    .getElementById("siteModal")
+    .classList.remove("active");
+
+}
+
+
+async function loadUser() {
+
+  const token =
+    getToken();
+
+  if (!token) {
+
+    window.location.href =
+      "/test-auth.html";
+
+    return false;
+  }
+
+  try {
+
+    const response =
+      await fetch(
+        "/api/auth/me",
+        {
+          headers: {
+            "Authorization":
+              `Bearer ${token}`
+          }
+        }
+      );
+
+    if (!response.ok) {
+
+      localStorage.removeItem(
+        tokenKey
+      );
+
+      window.location.href =
+        "/test-auth.html";
+
+      return false;
+    }
+
+    const data =
+      await response.json();
+
+    document
+      .getElementById("userEmail")
+      .textContent =
+        data.user.email;
+
+    return true;
+
+  } catch (error) {
+
+    showMessage(
+      "تعذر الاتصال بالخادم",
+      "error"
+    );
+
+    return false;
+  }
+}
+
+
+async function loadSites() {
+
+  const token =
+    getToken();
+
+  if (!token) {
+    return;
+  }
+
+  const list =
+    document.getElementById(
+      "siteList"
+    );
+
+  list.innerHTML =
+    `<div class="loading">
+      جاري تحميل المواقع...
+    </div>`;
+
+  try {
+
+    const response =
+      await fetch(
+        "/api/sites",
+        {
+          headers: {
+            "Authorization":
+              `Bearer ${token}`
+          }
+        }
+      );
+
+    const data =
+      await response.json();
+
+    if (!response.ok) {
+
+      list.innerHTML =
+        `<div class="empty">
+          ❌ ${data.error || "حدث خطأ"}
+        </div>`;
+
+      return;
+    }
+
+    const sites =
+      data.sites || [];
+
+    document
+      .getElementById("sitesCount")
+      .textContent =
+        sites.length;
+
+    if (sites.length === 0) {
+
+      list.innerHTML =
+        `<div class="empty">
+          لا توجد مواقع بعد.<br>
+          اضغط «إضافة موقع» للبدء.
+        </div>`;
+
+      return;
+    }
+
+    list.innerHTML =
+      sites.map(site => {
+
+        return `
+          <div class="site">
+
+            <div class="site-name">
+              🌐 ${escapeHtml(site.name)}
+            </div>
+
+            <div class="site-host">
+              ${escapeHtml(site.username)}@
+              ${escapeHtml(site.hostname)}:
+              ${site.port}
+            </div>
+
+            <div class="badge">
+              ${escapeHtml(site.status)}
+            </div>
+
+          </div>
+        `;
+
+      }).join("");
+
+  } catch (error) {
+
+    list.innerHTML =
+      `<div class="empty">
+        ❌ تعذر تحميل المواقع
+      </div>`;
+  }
+}
+
+
+async function addSite() {
+
+  const token =
+    getToken();
+
+  const name =
+    document
+      .getElementById("siteName")
+      .value
+      .trim();
+
+  const hostname =
+    document
+      .getElementById("hostname")
+      .value
+      .trim();
+
+  const port =
+    Number(
+      document
+        .getElementById("port")
+        .value
+    );
+
+  const username =
+    document
+      .getElementById("username")
+      .value
+      .trim();
+
+  const workingDirectory =
+    document
+      .getElementById("workingDirectory")
+      .value
+      .trim();
+
+  if (
+    !name ||
+    !hostname ||
+    !username
+  ) {
+
+    showMessage(
+      "املأ اسم الموقع وHostname وUsername",
+      "error"
+    );
+
+    return;
+  }
+
+  showMessage(
+    "جاري إضافة الموقع..."
+  );
+
+  try {
+
+    const response =
+      await fetch(
+        "/api/sites",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+
+            "Authorization":
+              `Bearer ${token}`
+          },
+
+          body: JSON.stringify({
+
+            name,
+
+            hostname,
+
+            port,
+
+            username,
+
+            working_directory:
+              workingDirectory || "/"
+
+          })
+        }
+      );
+
+    const data =
+      await response.json();
+
+    if (!response.ok) {
+
+      showMessage(
+        data.error ||
+        "فشل إضافة الموقع",
+        "error"
+      );
+
+      return;
+    }
+
+    closeModal();
+
+    document
+      .getElementById("siteName")
+      .value = "";
+
+    document
+      .getElementById("hostname")
+      .value = "";
+
+    document
+      .getElementById("username")
+      .value = "";
+
+    document
+      .getElementById("workingDirectory")
+      .value = "/";
+
+    showMessage(
+      "✅ تمت إضافة الموقع بنجاح"
+    );
+
+    await loadSites();
+
+  } catch (error) {
+
+    showMessage(
+      "تعذر الاتصال بالخادم",
+      "error"
+    );
+
+  }
+}
+
+
+function escapeHtml(value) {
+
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+
+/* =========================
+   START
+========================= */
+
+async function start() {
+
+  const authenticated =
+    await loadUser();
+
+  if (!authenticated) {
+    return;
+  }
+
+  await loadSites();
+
+}
+
+
+start();
+
+</script>
+
+</body>
+</html>
