@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>اختبار Authentication</title>
+
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #0f172a;
+      color: white;
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 420px;
+      background: #1e293b;
+      padding: 25px;
+      border-radius: 16px;
+      box-sizing: border-box;
+    }
+
+    h1 {
+      margin-top: 0;
+      font-size: 24px;
+    }
+
+    input,
+    button {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 14px;
+      margin-top: 12px;
+      border-radius: 10px;
+      border: 0;
+      font-size: 16px;
+    }
+
+    input {
+      background: #334155;
+      color: white;
+    }
+
+    button {
+      background: #22c55e;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button.login {
+      background: #3b82f6;
+    }
+
+    #result {
+      margin-top: 20px;
+      padding: 15px;
+      background: #0f172a;
+      border-radius: 10px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 14px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="card">
+
+    <h1>🔐 اختبار نظام الدخول</h1>
+
+    <input
+      id="email"
+      type="email"
+      value="instalikeusa.ltd@gmail.com"
+      placeholder="البريد الإلكتروني"
+    >
+
+    <input
+      id="password"
+      type="password"
+      placeholder="كلمة المرور"
+    >
+
+    <button onclick="register()">
+      إنشاء الحساب
+    </button>
+
+    <button class="login" onclick="login()">
+      تسجيل الدخول
+    </button>
+
+    <div id="result">
+      جاهز للاختبار...
+    </div>
+
+  </div>
+
+<script>
+
+const result = document.getElementById("result");
+
+function show(data) {
+  result.textContent =
+    typeof data === "string"
+      ? data
+      : JSON.stringify(data, null, 2);
+}
+
+async function register() {
+
+  const email =
+    document.getElementById("email").value.trim();
+
+  const password =
+    document.getElementById("password").value;
+
+  if (!email || !password) {
+    show("اكتب البريد وكلمة المرور أولًا.");
+    return;
+  }
+
+  show("جاري إنشاء الحساب...");
+
+  try {
+
+    const response = await fetch(
+      "/api/auth/register",
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json"
+        },
+
+        body: JSON.stringify({
+          email,
+          password
+        })
+      }
+    );
+
+    const data = await response.json();
+
+    show({
+      http_status: response.status,
+      response: data
+    });
+
+  } catch (error) {
+
+    show({
+      error: "Network error",
+      details: error.message
+    });
+
+  }
+}
+
+async function login() {
+
+  const email =
+    document.getElementById("email").value.trim();
+
+  const password =
+    document.getElementById("password").value;
+
+  if (!email || !password) {
+    show("اكتب البريد وكلمة المرور أولًا.");
+    return;
+  }
+
+  show("جاري تسجيل الدخول...");
+
+  try {
+
+    const response = await fetch(
+      "/api/auth/login",
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json"
+        },
+
+        body: JSON.stringify({
+          email,
+          password
+        })
+      }
+    );
+
+    const data = await response.json();
+
+    if (data.token) {
+      localStorage.setItem(
+        "arabic_ai_token",
+        data.token
+      );
+    }
+
+    show({
+      http_status: response.status,
+      response: data,
+      token_saved:
+        Boolean(data.token)
+    });
+
+  } catch (error) {
+
+    show({
+      error: "Network error",
+      details: error.message
+    });
+
+  }
+}
+
+</script>
+
+</body>
+</html>
