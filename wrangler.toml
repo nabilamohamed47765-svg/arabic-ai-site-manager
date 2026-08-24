@@ -1,0 +1,10 @@
+name = "arabic-ai-site-manager"
+
+compatibility_date = "2026-08-24"
+
+pages_build_output_dir = "dist"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "arabic-ai-db"
+database_id = "b284b59e-f6a9-4420-8c72-1ad8fb5f6b1d"
