@@ -1,0 +1,17 @@
+{
+  "name": "arabic-ai-ssh-executor",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Secure SSH executor for Arabic AI Site Manager",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "ssh2": "^1.17.0"
+  }
+}
