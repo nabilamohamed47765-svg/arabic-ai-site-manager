@@ -1,12 +1,20 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <title>لوحة التحكم - Arabic AI Site Manager</title>
+<head>
+
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0">
+
+  <title>
+    لوحة التحكم - Arabic AI Site Manager
+  </title>
 
   <style>
+
     * {
       box-sizing: border-box;
     }
@@ -169,6 +177,12 @@
       text-align: right;
     }
 
+    .site-directory {
+      color: #94a3b8;
+      margin-top: 7px;
+      font-size: 13px;
+    }
+
     .badge {
       display: inline-block;
       margin-top: 10px;
@@ -177,6 +191,17 @@
       background: #14532d;
       color: #86efac;
       font-size: 12px;
+    }
+
+    .site-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    .delete-button {
+      background: #dc2626;
+      flex: 1;
     }
 
     .empty {
@@ -323,11 +348,16 @@
       .modal-actions {
         flex-direction: column;
       }
+
     }
+
   </style>
+
 </head>
 
+
 <body>
+
 
 <header class="header">
 
@@ -347,10 +377,13 @@
 
     </div>
 
+
     <button
       class="logout"
       onclick="logout()">
+
       تسجيل الخروج
+
     </button>
 
   </div>
@@ -358,7 +391,9 @@
 </header>
 
 
+
 <main>
+
 
   <section class="hero">
 
@@ -367,25 +402,34 @@
     </h1>
 
     <p>
-      من هنا ستدير موقعك وتتواصل مع مدير الذكاء الاصطناعي
-      لتنفيذ المهام البرمجية وإدارة الموقع.
+
+      من هنا ستدير موقعك وتتواصل مع
+      مدير الذكاء الاصطناعي لتنفيذ
+      المهام البرمجية وإدارة الموقع.
+
     </p>
 
   </section>
 
 
+
   <section class="stats">
+
 
     <div class="stat">
 
       <div
         class="stat-number"
         id="sitesCount">
+
         0
+
       </div>
 
       <div class="stat-label">
+
         الموقع الحالي
+
       </div>
 
     </div>
@@ -394,11 +438,15 @@
     <div class="stat">
 
       <div class="stat-number">
+
         0
+
       </div>
 
       <div class="stat-label">
+
         المهام
+
       </div>
 
     </div>
@@ -407,19 +455,26 @@
     <div class="stat">
 
       <div class="stat-number">
+
         0
+
       </div>
 
       <div class="stat-label">
+
         Backups
+
       </div>
 
     </div>
+
 
   </section>
 
 
+
   <section class="section">
+
 
     <div class="section-title">
 
@@ -427,16 +482,21 @@
         🌐 الموقع الحالي
       </h2>
 
+
       <button
         class="add"
         onclick="openModal()">
+
         + إضافة موقع
+
       </button>
 
     </div>
 
 
+
     <div id="message"></div>
+
 
 
     <div
@@ -444,15 +504,20 @@
       class="site-list">
 
       <div class="loading">
+
         جاري تحميل الموقع...
+
       </div>
 
     </div>
 
+
   </section>
 
 
+
   <section class="section">
+
 
     <div class="section-title">
 
@@ -461,6 +526,7 @@
       </h2>
 
     </div>
+
 
     <div class="empty">
 
@@ -473,26 +539,35 @@
       </h3>
 
       <p>
-        سنضيف هنا المحادثة العربية وتنفيذ المهام
-        وتحليل الموقع في المرحلة التالية.
+
+        سنضيف هنا المحادثة العربية
+        وتنفيذ المهام وتحليل الموقع
+        في المرحلة التالية.
+
       </p>
 
     </div>
 
+
   </section>
 
+
 </main>
+
 
 
 <!-- =========================
      ADD SITE MODAL
 ========================= -->
 
+
 <div
   class="modal"
   id="siteModal">
 
+
   <div class="modal-box">
+
 
     <h2>
       🔐 إضافة موقع عبر SSH
@@ -501,9 +576,9 @@
 
     <div class="security-note">
 
-      بيانات SSH يتم إرسالها عبر اتصال HTTPS
-      إلى الـAPI، ويتم تشفير كلمة المرور قبل
-      تخزينها في قاعدة البيانات.
+      بيانات SSH يتم إرسالها عبر HTTPS
+      ويتم تشفير كلمة المرور قبل تخزينها
+      في قاعدة البيانات.
 
       <br><br>
 
@@ -511,6 +586,7 @@
       ولن يتم إرجاعها للمتصفح بعد الحفظ.
 
     </div>
+
 
 
     <label>
@@ -524,6 +600,7 @@
       autocomplete="off">
 
 
+
     <label>
       SSH Host / IP
     </label>
@@ -533,6 +610,7 @@
       type="text"
       placeholder="123.123.123.123"
       autocomplete="off">
+
 
 
     <label>
@@ -548,6 +626,7 @@
       autocomplete="off">
 
 
+
     <label>
       SSH Username
     </label>
@@ -559,9 +638,11 @@
       autocomplete="off">
 
 
+
     <label>
       SSH Password
     </label>
+
 
     <div class="password-wrapper">
 
@@ -571,14 +652,18 @@
         placeholder="كلمة مرور SSH"
         autocomplete="new-password">
 
+
       <button
         type="button"
         class="show-password"
         onclick="togglePassword()">
+
         إظهار
+
       </button>
 
     </div>
+
 
 
     <label>
@@ -593,29 +678,40 @@
       autocomplete="off">
 
 
+
     <div class="modal-actions">
+
 
       <button
         class="save"
         id="saveButton"
         onclick="addSite()">
+
         🔐 حفظ بيانات SSH
+
       </button>
+
 
       <button
         class="cancel"
         onclick="closeModal()">
+
         إلغاء
+
       </button>
 
+
     </div>
+
 
   </div>
 
 </div>
 
 
+
 <script>
+
 
 const tokenKey =
   "arabic_ai_token";
@@ -630,6 +726,7 @@ function getToken() {
 }
 
 
+
 function logout() {
 
   localStorage.removeItem(
@@ -638,7 +735,9 @@ function logout() {
 
   window.location.href =
     "/test-auth.html";
+
 }
+
 
 
 function showMessage(
@@ -660,6 +759,7 @@ function showMessage(
 }
 
 
+
 function openModal() {
 
   document
@@ -669,6 +769,7 @@ function openModal() {
 }
 
 
+
 function closeModal() {
 
   document
@@ -676,6 +777,7 @@ function closeModal() {
     .classList.remove("active");
 
 }
+
 
 
 function togglePassword() {
@@ -690,7 +792,10 @@ function togglePassword() {
       ".show-password"
     );
 
-  if (input.type === "password") {
+
+  if (
+    input.type === "password"
+  ) {
 
     input.type = "text";
 
@@ -709,10 +814,12 @@ function togglePassword() {
 }
 
 
+
 async function loadUser() {
 
   const token =
     getToken();
+
 
   if (!token) {
 
@@ -722,6 +829,7 @@ async function loadUser() {
     return false;
 
   }
+
 
   try {
 
@@ -736,6 +844,7 @@ async function loadUser() {
         }
       );
 
+
     if (!response.ok) {
 
       localStorage.removeItem(
@@ -749,15 +858,19 @@ async function loadUser() {
 
     }
 
+
     const data =
       await response.json();
+
 
     document
       .getElementById("userEmail")
       .textContent =
         data.user.email;
 
+
     return true;
+
 
   } catch (error) {
 
@@ -773,24 +886,29 @@ async function loadUser() {
 }
 
 
+
 async function loadSites() {
 
   const token =
     getToken();
 
+
   if (!token) {
     return;
   }
+
 
   const list =
     document.getElementById(
       "siteList"
     );
 
+
   list.innerHTML =
     `<div class="loading">
       جاري تحميل الموقع...
     </div>`;
+
 
   try {
 
@@ -805,8 +923,10 @@ async function loadSites() {
         }
       );
 
+
     const data =
       await response.json();
+
 
     if (!response.ok) {
 
@@ -822,13 +942,16 @@ async function loadSites() {
 
     }
 
+
     const sites =
       data.sites || [];
+
 
     document
       .getElementById("sitesCount")
       .textContent =
         sites.length;
+
 
     if (sites.length === 0) {
 
@@ -848,58 +971,82 @@ async function loadSites() {
 
     }
 
-    /*
-      بما أننا نتعامل مع موقع واحد فقط
-      نعرض الموقع الحالي.
-    */
 
     const site =
       sites[0];
+
 
     list.innerHTML = `
 
       <div class="site">
 
+
         <div class="site-name">
+
           🌐 ${escapeHtml(
             site.name
           )}
+
         </div>
 
+
         <div class="site-host">
+
           ${escapeHtml(
             site.username
           )}@${escapeHtml(
             site.hostname
           )}:${site.port}
+
         </div>
 
-        <div
-          style="
-            color:#94a3b8;
-            margin-top:7px;
-            font-size:13px;
-          "
-        >
+
+        <div class="site-directory">
+
           📁 ${escapeHtml(
             site.working_directory ||
             "/"
           )}
+
         </div>
 
+
         <div class="badge">
+
           🔐 بيانات SSH محفوظة بشكل آمن
+
         </div>
+
+
+        <div class="site-actions">
+
+
+          <button
+            class="delete-button"
+            onclick="deleteSite(
+              '${escapeHtml(site.id)}'
+            )">
+
+            🗑️ حذف الموقع
+
+          </button>
+
+
+        </div>
+
 
       </div>
 
     `;
 
+
   } catch (error) {
 
     list.innerHTML =
       `<div class="empty">
+
         ❌ تعذر تحميل الموقع
+
       </div>`;
 
   }
@@ -907,10 +1054,12 @@ async function loadSites() {
 }
 
 
+
 async function addSite() {
 
   const token =
     getToken();
+
 
   if (!token) {
 
@@ -1002,6 +1151,7 @@ async function addSite() {
       "saveButton"
     );
 
+
   button.disabled = true;
 
   button.textContent =
@@ -1040,7 +1190,8 @@ async function addSite() {
               sshPassword,
 
             working_directory:
-              workingDirectory || "/"
+              workingDirectory ||
+              "/"
 
           })
 
@@ -1065,11 +1216,6 @@ async function addSite() {
     }
 
 
-    /*
-      تنظيف كلمة المرور فورًا
-      من ذاكرة الصفحة.
-    */
-
     document
       .getElementById("sshPassword")
       .value = "";
@@ -1091,7 +1237,9 @@ async function addSite() {
 
 
     document
-      .getElementById("workingDirectory")
+      .getElementById(
+        "workingDirectory"
+      )
       .value =
         "/var/www/html";
 
@@ -1100,7 +1248,7 @@ async function addSite() {
 
 
     showMessage(
-      "✅ تم حفظ بيانات الموقع وتشفير كلمة مرور SSH بنجاح"
+      "✅ تم حفظ الموقع وتشفير كلمة مرور SSH بنجاح"
     );
 
 
@@ -1126,30 +1274,156 @@ async function addSite() {
 }
 
 
+
+async function deleteSite(siteId) {
+
+  const confirmed =
+    confirm(
+      "⚠️ هل أنت متأكد من حذف الموقع؟\n\n" +
+
+      "سيتم حذف بيانات الموقع وبيانات SSH " +
+      "من نظامنا فقط.\n\n" +
+
+      "لن يتم حذف ملفات الموقع من السيرفر."
+    );
+
+
+  if (!confirmed) {
+    return;
+  }
+
+
+  const token =
+    getToken();
+
+
+  if (!token) {
+
+    window.location.href =
+      "/test-auth.html";
+
+    return;
+
+  }
+
+
+  try {
+
+    showMessage(
+      "⏳ جاري حذف الموقع..."
+    );
+
+
+    const response =
+      await fetch(
+        "/api/sites",
+        {
+          method: "DELETE",
+
+          headers: {
+
+            "Content-Type":
+              "application/json",
+
+            "Authorization":
+              `Bearer ${token}`
+
+          },
+
+          body: JSON.stringify({
+            id: siteId
+          })
+
+        }
+      );
+
+
+    const data =
+      await response.json();
+
+
+    if (!response.ok) {
+
+      showMessage(
+        data.error ||
+        "فشل حذف الموقع",
+        "error"
+      );
+
+      return;
+
+    }
+
+
+    showMessage(
+      "✅ تم حذف الموقع من النظام بنجاح"
+    );
+
+
+    await loadSites();
+
+
+  } catch (error) {
+
+    showMessage(
+      "Network error: تعذر الاتصال بالخادم",
+      "error"
+    );
+
+  }
+
+}
+
+
+
 function escapeHtml(value) {
 
   return String(value)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+
+    .replace(
+      /&/g,
+      "&amp;"
+    )
+
+    .replace(
+      /</g,
+      "&lt;"
+    )
+
+    .replace(
+      />/g,
+      "&gt;"
+    )
+
+    .replace(
+      /"/g,
+      "&quot;"
+    )
+
+    .replace(
+      /'/g,
+      "&#039;"
+    );
 
 }
+
 
 
 /* =========================
    START
 ========================= */
 
+
 async function start() {
 
   const authenticated =
     await loadUser();
 
+
   if (!authenticated) {
     return;
   }
+
 
   await loadSites();
 
@@ -1158,7 +1432,9 @@ async function start() {
 
 start();
 
+
 </script>
 
 </body>
+
 </html>
