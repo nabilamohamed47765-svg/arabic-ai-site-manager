@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-
   workflow_dispatch:
 
 jobs:
@@ -13,7 +12,6 @@ jobs:
 
     permissions:
       contents: read
-      deployments: write
 
     steps:
       - name: Checkout repository
@@ -27,15 +25,6 @@ jobs:
       - name: Install Wrangler
         run: npm install -g wrangler@latest
 
-      - name: Prepare Pages project
-        run: |
-          rm -rf dist
-          mkdir -p dist
-          cp -r frontend/. dist/
-          cp -r functions dist/
-        env:
-          CI: true
-
       - name: Create Cloudflare Pages project if needed
         run: |
           wrangler pages project create arabic-ai-site-manager \
@@ -44,11 +33,12 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
-      - name: Deploy to Cloudflare Pages
+      - name: Deploy Cloudflare Pages
         run: |
-          wrangler pages deploy dist \
+          wrangler pages deploy frontend \
             --project-name=arabic-ai-site-manager \
-            --branch=main
+            --branch=main \
+            --d1 DB=${{ vars.CLOUDFLARE_D1_DATABASE_ID }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
