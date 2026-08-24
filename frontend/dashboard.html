@@ -193,10 +193,40 @@
       font-size: 12px;
     }
 
+    .ssh-status {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 5px 9px;
+      border-radius: 20px;
+      background: #334155;
+      color: #cbd5e1;
+      font-size: 12px;
+    }
+
+    .ssh-status.testing {
+      background: #172554;
+      color: #93c5fd;
+    }
+
+    .ssh-status.success {
+      background: #14532d;
+      color: #86efac;
+    }
+
+    .ssh-status.failed {
+      background: #450a0a;
+      color: #fca5a5;
+    }
+
     .site-actions {
       display: flex;
       gap: 10px;
       margin-top: 15px;
+    }
+
+    .ssh-test-button {
+      background: #2563eb;
+      flex: 1;
     }
 
     .delete-button {
@@ -346,6 +376,10 @@
       }
 
       .modal-actions {
+        flex-direction: column;
+      }
+
+      .site-actions {
         flex-direction: column;
       }
 
@@ -556,11 +590,6 @@
 
 
 
-<!-- =========================
-     ADD SITE MODAL
-========================= -->
-
-
 <div
   class="modal"
   id="siteModal">
@@ -608,7 +637,7 @@
     <input
       id="hostname"
       type="text"
-      placeholder="123.123.123.123"
+      placeholder="ssh-nodes.alwaysdata.net"
       autocomplete="off">
 
 
@@ -887,6 +916,64 @@ async function loadUser() {
 
 
 
+function getSSHStatus(
+  site
+) {
+
+  const status =
+    site.ssh_test_status ||
+    "not_tested";
+
+
+  if (
+    status === "testing"
+  ) {
+
+    return `
+      <div class="ssh-status testing">
+        ⏳ جاري اختبار اتصال SSH
+      </div>
+    `;
+
+  }
+
+
+  if (
+    status === "success"
+  ) {
+
+    return `
+      <div class="ssh-status success">
+        🟢 اتصال SSH ناجح
+      </div>
+    `;
+
+  }
+
+
+  if (
+    status === "failed"
+  ) {
+
+    return `
+      <div class="ssh-status failed">
+        🔴 فشل اتصال SSH
+      </div>
+    `;
+
+  }
+
+
+  return `
+    <div class="ssh-status">
+      ⚪ لم يتم اختبار SSH بعد
+    </div>
+  `;
+
+}
+
+
+
 async function loadSites() {
 
   const token =
@@ -1018,7 +1105,22 @@ async function loadSites() {
         </div>
 
 
+        ${getSSHStatus(site)}
+
+
         <div class="site-actions">
+
+
+          <button
+            class="ssh-test-button"
+            id="sshTestButton"
+            onclick="testSSH(
+              '${escapeHtml(site.id)}'
+            )">
+
+            🔌 اختبار اتصال SSH
+
+          </button>
 
 
           <button
@@ -1275,7 +1377,196 @@ async function addSite() {
 
 
 
-async function deleteSite(siteId) {
+async function testSSH(
+  siteId
+) {
+
+  const token =
+    getToken();
+
+
+  if (!token) {
+
+    window.location.href =
+      "/test-auth.html";
+
+    return;
+
+  }
+
+
+  const button =
+    document.getElementById(
+      "sshTestButton"
+    );
+
+
+  if (button) {
+
+    button.disabled = true;
+
+    button.textContent =
+      "⏳ جاري الاختبار...";
+
+  }
+
+
+  try {
+
+    showMessage(
+      "⏳ جاري إنشاء طلب اختبار SSH..."
+    );
+
+
+    /*
+     * أولاً ننشئ طلب اختبار SSH.
+     */
+
+    const createResponse =
+      await fetch(
+        "/api/sites/ssh-test",
+        {
+          method: "POST",
+
+          headers: {
+
+            "Content-Type":
+              "application/json",
+
+            "Authorization":
+              `Bearer ${token}`
+
+          },
+
+          body: JSON.stringify({
+            id: siteId
+          })
+
+        }
+      );
+
+
+    const createData =
+      await createResponse.json();
+
+
+    if (!createResponse.ok) {
+
+      showMessage(
+        createData.error ||
+        "فشل إنشاء طلب SSH",
+        "error"
+      );
+
+      return;
+
+    }
+
+
+    const requestId =
+      createData.request_id;
+
+
+    if (!requestId) {
+
+      showMessage(
+        "لم يتم الحصول على رقم طلب SSH",
+        "error"
+      );
+
+      return;
+
+    }
+
+
+    /*
+     * ثانياً نشغّل GitHub Action.
+     */
+
+    showMessage(
+      "⏳ جاري تشغيل Executor..."
+    );
+
+
+    const startResponse =
+      await fetch(
+        "/api/sites/ssh-test/start",
+        {
+          method: "POST",
+
+          headers: {
+
+            "Content-Type":
+              "application/json",
+
+            "Authorization":
+              `Bearer ${token}`
+
+          },
+
+          body: JSON.stringify({
+
+            request_id:
+              requestId
+
+          })
+
+        }
+      );
+
+
+    const startData =
+      await startResponse.json();
+
+
+    if (!startResponse.ok) {
+
+      showMessage(
+        startData.error ||
+        "فشل تشغيل Executor",
+        "error"
+      );
+
+      return;
+
+    }
+
+
+    showMessage(
+      "✅ تم تشغيل اختبار SSH بنجاح. انتظر النتيجة..."
+    );
+
+
+    await loadSites();
+
+
+  } catch (error) {
+
+    showMessage(
+      "Network error: تعذر تشغيل اختبار SSH",
+      "error"
+    );
+
+  } finally {
+
+    if (button) {
+
+      button.disabled = false;
+
+      button.textContent =
+        "🔌 اختبار اتصال SSH";
+
+    }
+
+  }
+
+}
+
+
+
+async function deleteSite(
+  siteId
+) {
 
   const confirmed =
     confirm(
@@ -1376,7 +1667,9 @@ async function deleteSite(siteId) {
 
 
 
-function escapeHtml(value) {
+function escapeHtml(
+  value
+) {
 
   return String(value)
 
@@ -1410,9 +1703,40 @@ function escapeHtml(value) {
 
 
 /* =========================
-   START
+   AUTO REFRESH
 ========================= */
 
+let refreshTimer = null;
+
+
+function startAutoRefresh() {
+
+  if (refreshTimer) {
+
+    clearInterval(
+      refreshTimer
+    );
+
+  }
+
+
+  refreshTimer =
+    setInterval(
+      async () => {
+
+        await loadSites();
+
+      },
+      5000
+    );
+
+}
+
+
+
+/* =========================
+   START
+========================= */
 
 async function start() {
 
@@ -1426,6 +1750,8 @@ async function start() {
 
 
   await loadSites();
+
+  startAutoRefresh();
 
 }
 
