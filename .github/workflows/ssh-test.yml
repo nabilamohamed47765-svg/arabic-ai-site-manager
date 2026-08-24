@@ -15,9 +15,6 @@ jobs:
 
     steps:
 
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -32,6 +29,8 @@ jobs:
         env:
           REQUEST_ID: ${{ inputs.request_id }}
         run: |
+          set -e
+
           if [[ ! "$REQUEST_ID" =~ ^[A-Za-z0-9_-]{20,100}$ ]]; then
             echo "Invalid request_id"
             exit 1
@@ -50,6 +49,8 @@ jobs:
           import os
           import subprocess
           import json
+          import sys
+          from datetime import datetime, timezone
 
           request_id = os.environ["REQUEST_ID"]
 
@@ -92,19 +93,29 @@ jobs:
           )
 
           if result.returncode != 0:
+              print("Failed to read SSH request from D1.")
               print(result.stderr)
-              raise SystemExit(result.returncode)
+              sys.exit(1)
 
-          data = json.loads(result.stdout)
+          try:
+              data = json.loads(result.stdout)
+          except Exception:
+              print("Invalid D1 JSON response.")
+              sys.exit(1)
 
           rows = []
 
-          for item in data:
-              if isinstance(item, dict) and "results" in item:
-                  rows.extend(item["results"])
+          if isinstance(data, list):
+              for item in data:
+                  if isinstance(item, dict) and "results" in item:
+                      rows.extend(item["results"])
+
+          elif isinstance(data, dict) and "results" in data:
+              rows.extend(data["results"])
 
           if not rows:
-              raise SystemExit("SSH request not found")
+              print("SSH request not found.")
+              sys.exit(1)
 
           row = rows[0]
 
@@ -118,31 +129,45 @@ jobs:
 
           for field in required:
               if not row.get(field):
-                  raise SystemExit(
-                      f"Missing SSH field: {field}"
-                  )
+                  print(f"Missing SSH field: {field}")
+                  sys.exit(1)
 
           if row.get("status") not in ["pending", "running"]:
-              raise SystemExit(
+              print(
                   f"Invalid request status: {row.get('status')}"
               )
+              sys.exit(1)
 
           if row.get("expires_at"):
-              from datetime import datetime, timezone
+              try:
+                  expires = datetime.fromisoformat(
+                      row["expires_at"].replace("Z", "+00:00")
+                  )
 
-              expires = datetime.fromisoformat(
-                  row["expires_at"].replace("Z", "+00:00")
-              )
+                  if expires < datetime.now(timezone.utc):
+                      print("SSH request expired.")
+                      sys.exit(1)
 
-              if expires < datetime.now(timezone.utc):
-                  raise SystemExit("SSH request expired")
+              except Exception:
+                  print("Invalid expires_at value.")
+                  sys.exit(1)
+
+          port = int(row["port"])
+
+          if port < 1 or port > 65535:
+              print("Invalid SSH port.")
+              sys.exit(1)
 
           output = {
               "hostname": str(row["hostname"]),
-              "port": int(row["port"]),
+              "port": str(port),
               "username": str(row["username"]),
-              "ciphertext": str(row["ssh_password_ciphertext"]),
-              "iv": str(row["ssh_password_iv"])
+              "ciphertext": str(
+                  row["ssh_password_ciphertext"]
+              ),
+              "iv": str(
+                  row["ssh_password_iv"]
+              )
           }
 
           with open(
@@ -150,14 +175,18 @@ jobs:
               "a",
               encoding="utf-8"
           ) as f:
+
               for key, value in output.items():
+
                   f.write(
-                      f"{key}<<EOF\n{value}\nEOF\n"
+                      f"{key}<<EOF\n"
+                      f"{value}\n"
+                      f"EOF\n"
                   )
+
           PY
 
       - name: Decrypt SSH password
-        id: decrypt
         env:
           SSH_ENCRYPTION_KEY: ${{ secrets.SSH_ENCRYPTION_KEY }}
           SSH_CIPHERTEXT: ${{ steps.request.outputs.ciphertext }}
@@ -167,9 +196,29 @@ jobs:
 
           node <<'NODE'
           const crypto = require("crypto");
+          const fs = require("fs");
 
           const secret =
             process.env.SSH_ENCRYPTION_KEY;
+
+          if (!secret) {
+            throw new Error(
+              "SSH_ENCRYPTION_KEY GitHub Secret is missing"
+            );
+          }
+
+          const key =
+            Buffer.from(secret, "utf8");
+
+          if (
+            key.length !== 16 &&
+            key.length !== 24 &&
+            key.length !== 32
+          ) {
+            throw new Error(
+              "SSH_ENCRYPTION_KEY must be 16, 24, or 32 bytes"
+            );
+          }
 
           const ciphertext =
             Buffer.from(
@@ -183,24 +232,17 @@ jobs:
               "base64"
             );
 
-          const key =
-            Buffer.from(secret, "utf8");
-
-          if (key.length !== 16 &&
-              key.length !== 24 &&
-              key.length !== 32) {
+          if (iv.length !== 12) {
             throw new Error(
-              "SSH_ENCRYPTION_KEY must be 16, 24, or 32 bytes"
+              "Invalid AES-GCM IV"
             );
           }
 
-          /*
-           * WebCrypto AES-GCM stores the authentication
-           * tag at the end of the encrypted data.
-           */
           const tagLength = 16;
 
-          if (ciphertext.length <= tagLength) {
+          if (
+            ciphertext.length <= tagLength
+          ) {
             throw new Error(
               "Invalid encrypted SSH password"
             );
@@ -242,22 +284,21 @@ jobs:
             "::add-mask::" + password
           );
 
-          const fs = require("fs");
-
           fs.writeFileSync(
-            process.env.GITHUB_ENV,
-            `SSHPASS=${password}\n`,
+            "/tmp/ssh_password",
+            password,
             {
               encoding: "utf8",
-              flag: "a"
+              mode: 0o600
             }
           );
           NODE
 
+          chmod 600 /tmp/ssh_password
+
       - name: Test SSH connection
         id: ssh
         env:
-          SSHPASS: ${{ env.SSHPASS }}
           SSH_HOST: ${{ steps.request.outputs.hostname }}
           SSH_PORT: ${{ steps.request.outputs.port }}
           SSH_USER: ${{ steps.request.outputs.username }}
@@ -270,14 +311,16 @@ jobs:
           echo "User: $SSH_USER"
 
           OUTPUT=$(
-            sshpass -e ssh \
+            sshpass -f /tmp/ssh_password \
+              ssh \
               -o StrictHostKeyChecking=accept-new \
               -o ConnectTimeout=20 \
               -o ConnectionAttempts=1 \
+              -o BatchMode=no \
               -p "$SSH_PORT" \
               "$SSH_USER@$SSH_HOST" \
-              "printf 'SSH_CONNECTION_OK'"
-            2>&1
+              "printf 'SSH_CONNECTION_OK'" \
+              2>&1
           )
 
           EXIT_CODE=$?
@@ -291,11 +334,10 @@ jobs:
           else
 
             echo "SSH connection failed."
+
             echo "result=failure" >> "$GITHUB_OUTPUT"
 
-            echo "$OUTPUT" | \
-              sed \
-                -e "s/${SSHPASS}/[REDACTED]/g"
+            echo "$OUTPUT"
 
             exit 1
           fi
@@ -307,6 +349,8 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
+          set -e
+
           python3 <<'PY'
           import os
           import subprocess
@@ -376,6 +420,8 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
+          set +e
+
           python3 <<'PY'
           import os
           import subprocess
@@ -406,7 +452,7 @@ jobs:
                   "--command",
                   sql
               ],
-              check=True
+              check=False
           )
 
           sql2 = f"""
@@ -434,6 +480,11 @@ jobs:
                   "--command",
                   sql2
               ],
-              check=True
+              check=False
           )
           PY
+
+      - name: Cleanup SSH password
+        if: always()
+        run: |
+          rm -f /tmp/ssh_password
