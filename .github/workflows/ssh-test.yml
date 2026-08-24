@@ -3,8 +3,8 @@ name: SSH Connection Test
 on:
   workflow_dispatch:
     inputs:
-      request_token:
-        description: "One-time SSH test token"
+      request_id:
+        description: "SSH Request ID"
         required: true
         type: string
 
@@ -12,139 +12,24 @@ jobs:
   ssh-test:
     runs-on: ubuntu-latest
 
-    permissions:
-      contents: read
+    timeout-minutes: 5
 
     steps:
-      - name: Setup Python
-        uses: actions/setup-python@v6
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          python-version: "3.12"
+          node-version: 20
 
-      - name: Install SSH client library
+      - name: Install SSH client
         run: |
-          python -m pip install --upgrade pip
-          pip install paramiko
+          sudo apt-get update
+          sudo apt-get install -y openssh-client
 
-      - name: Get temporary SSH credentials
-        id: credentials
-        env:
-          REQUEST_TOKEN: ${{ inputs.request_token }}
+      - name: Show request
         run: |
-          set -e
-
-          RESPONSE=$(curl -fsS \
-            -X POST \
-            "https://arabic-ai-site-manager.pages.dev/api/ssh/executor" \
-            -H "Content-Type: application/json" \
-            -H "X-SSH-Executor-Token: ${REQUEST_TOKEN}")
-
-          echo "$RESPONSE" > credentials.json
-
-          python - <<'PY'
-          import json
-          import os
-
-          with open("credentials.json", "r", encoding="utf-8") as f:
-              data = json.load(f)
-
-          if not data.get("success"):
-              raise SystemExit(
-                  data.get("error", "فشل الحصول على بيانات SSH")
-              )
-
-          credentials = data["credentials"]
-
-          required = [
-              "hostname",
-              "port",
-              "username",
-              "password"
-          ]
-
-          for key in required:
-              if not credentials.get(key):
-                  raise SystemExit(
-                      f"Missing SSH field: {key}"
-                  )
-
-          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
-              env.write(
-                  f'SSH_HOST={credentials["hostname"]}\n'
-              )
-              env.write(
-                  f'SSH_PORT={credentials["port"]}\n'
-              )
-              env.write(
-                  f'SSH_USERNAME={credentials["username"]}\n'
-              )
-
-              # لا نطبع كلمة المرور في الـlogs
-              env.write(
-                  f'SSH_PASSWORD<<EOF\n'
-                  f'{credentials["password"]}\n'
-                  f'EOF\n'
-              )
-          PY
-
-          rm -f credentials.json
-
-      - name: Test SSH connection
-        env:
-          SSH_HOST: ${{ env.SSH_HOST }}
-          SSH_PORT: ${{ env.SSH_PORT }}
-          SSH_USERNAME: ${{ env.SSH_USERNAME }}
-          SSH_PASSWORD: ${{ env.SSH_PASSWORD }}
-        run: |
-          python - <<'PY'
-          import os
-          import paramiko
-
-          host = os.environ["SSH_HOST"]
-          port = int(os.environ["SSH_PORT"])
-          username = os.environ["SSH_USERNAME"]
-          password = os.environ["SSH_PASSWORD"]
-
-          client = paramiko.SSHClient()
-          client.set_missing_host_key_policy(
-              paramiko.AutoAddPolicy()
-          )
-
-          try:
-              client.connect(
-                  hostname=host,
-                  port=port,
-                  username=username,
-                  password=password,
-                  timeout=20,
-                  auth_timeout=20,
-                  banner_timeout=20,
-                  look_for_keys=False,
-                  allow_agent=False
-              )
-
-              stdin, stdout, stderr = client.exec_command(
-                  "echo SSH_CONNECTION_OK"
-              )
-
-              result = stdout.read().decode(
-                  "utf-8",
-                  errors="replace"
-              ).strip()
-
-              if result != "SSH_CONNECTION_OK":
-                  raise RuntimeError(
-                      "SSH connected but test command failed"
-                  )
-
-              print("SSH_CONNECTION_OK")
-
-          finally:
-              client.close()
-          PY
-
-      - name: Cleanup
-        if: always()
-        run: |
-          unset SSH_PASSWORD
-          rm -f credentials.json
+          echo "SSH request received:"
+          echo "${{ inputs.request_id }}"
