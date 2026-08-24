@@ -25,6 +25,13 @@ jobs:
       - name: Install Wrangler
         run: npm install -g wrangler@latest
 
+      - name: Prepare Pages build directory
+        run: |
+          rm -rf dist
+          mkdir -p dist
+          cp -r frontend/. dist/
+          cp -r functions dist/
+
       - name: Create Cloudflare Pages project if needed
         run: |
           wrangler pages project create arabic-ai-site-manager \
@@ -33,9 +40,9 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
-      - name: Deploy Cloudflare Pages
+      - name: Deploy to Cloudflare Pages
         run: |
-          wrangler pages deploy frontend \
+          wrangler pages deploy dist \
             --project-name=arabic-ai-site-manager \
             --branch=main
         env:
