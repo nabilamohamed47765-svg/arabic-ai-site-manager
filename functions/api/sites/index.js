@@ -1,5 +1,7 @@
 function base64UrlDecode(value) {
-  value = value.replace(/-/g, "+").replace(/_/g, "/");
+  value = value
+    .replace(/-/g, "+")
+    .replace(/_/g, "/");
 
   while (value.length % 4) {
     value += "=";
@@ -15,7 +17,9 @@ function base64UrlDecode(value) {
   return bytes;
 }
 
+
 function base64Encode(bytes) {
+
   let binary = "";
 
   for (const byte of bytes) {
@@ -25,10 +29,13 @@ function base64Encode(bytes) {
   return btoa(binary);
 }
 
+
 function generateId() {
-  const bytes = crypto.getRandomValues(
-    new Uint8Array(16)
-  );
+
+  const bytes =
+    crypto.getRandomValues(
+      new Uint8Array(16)
+    );
 
   let binary = "";
 
@@ -42,54 +49,83 @@ function generateId() {
     .replace(/=+$/, "");
 }
 
-async function verifyJWT(token, secret) {
-  const parts = token.split(".");
+
+/* ========================================
+   JWT
+======================================== */
+
+async function verifyJWT(
+  token,
+  secret
+) {
+
+  if (!token || !secret) {
+    return null;
+  }
+
+  const parts =
+    token.split(".");
 
   if (parts.length !== 3) {
     return null;
   }
 
-  const [header, payload, signature] = parts;
-
-  const data =
-    `${header}.${payload}`;
-
-  const key =
-    await crypto.subtle.importKey(
-      "raw",
-      new TextEncoder().encode(secret),
-      {
-        name: "HMAC",
-        hash: "SHA-256"
-      },
-      false,
-      ["verify"]
-    );
-
-  const valid =
-    await crypto.subtle.verify(
-      "HMAC",
-      key,
-      base64UrlDecode(signature),
-      new TextEncoder().encode(data)
-    );
-
-  if (!valid) {
-    return null;
-  }
+  const [
+    header,
+    payload,
+    signature
+  ] = parts;
 
   try {
+
+    const key =
+      await crypto.subtle.importKey(
+        "raw",
+        new TextEncoder().encode(
+          secret
+        ),
+        {
+          name: "HMAC",
+          hash: "SHA-256"
+        },
+        false,
+        ["verify"]
+      );
+
+
+    const valid =
+      await crypto.subtle.verify(
+        "HMAC",
+        key,
+        base64UrlDecode(
+          signature
+        ),
+        new TextEncoder().encode(
+          `${header}.${payload}`
+        )
+      );
+
+
+    if (!valid) {
+      return null;
+    }
+
+
     const decoded =
       JSON.parse(
         new TextDecoder().decode(
-          base64UrlDecode(payload)
+          base64UrlDecode(
+            payload
+          )
         )
       );
+
 
     const now =
       Math.floor(
         Date.now() / 1000
       );
+
 
     if (
       !decoded.exp ||
@@ -98,18 +134,26 @@ async function verifyJWT(token, secret) {
       return null;
     }
 
+
     return decoded;
 
   } catch {
+
     return null;
+
   }
 }
 
-async function getAuthenticatedUser(context) {
+
+async function getAuthenticatedUser(
+  context
+) {
+
   const authorization =
     context.request.headers.get(
       "Authorization"
     );
+
 
   if (
     !authorization ||
@@ -120,8 +164,10 @@ async function getAuthenticatedUser(context) {
     return null;
   }
 
+
   const token =
     authorization.substring(7);
+
 
   return await verifyJWT(
     token,
@@ -131,7 +177,46 @@ async function getAuthenticatedUser(context) {
 
 
 /* ========================================
-   SSH Password Encryption
+   SSH ENCRYPTION KEY
+======================================== */
+
+async function deriveEncryptionKey(
+  secret
+) {
+
+  if (!secret) {
+    throw new Error(
+      "SSH_ENCRYPTION_KEY غير مضبوط"
+    );
+  }
+
+
+  const hash =
+    await crypto.subtle.digest(
+      "SHA-256",
+      new TextEncoder().encode(
+        secret
+      )
+    );
+
+
+  return await crypto.subtle.importKey(
+    "raw",
+    hash,
+    {
+      name: "AES-GCM"
+    },
+    false,
+    [
+      "encrypt",
+      "decrypt"
+    ]
+  );
+}
+
+
+/* ========================================
+   Encrypt SSH Password
 ======================================== */
 
 async function encryptPassword(
@@ -139,26 +224,17 @@ async function encryptPassword(
   secret
 ) {
 
-  const secretBytes =
-    new TextEncoder().encode(
+  const key =
+    await deriveEncryptionKey(
       secret
     );
 
-  const key =
-    await crypto.subtle.importKey(
-      "raw",
-      secretBytes,
-      {
-        name: "AES-GCM"
-      },
-      false,
-      ["encrypt"]
-    );
 
   const iv =
     crypto.getRandomValues(
       new Uint8Array(12)
     );
+
 
   const encrypted =
     await crypto.subtle.encrypt(
@@ -172,7 +248,9 @@ async function encryptPassword(
       )
     );
 
+
   return {
+
     ciphertext:
       base64Encode(
         new Uint8Array(
@@ -181,7 +259,10 @@ async function encryptPassword(
       ),
 
     iv:
-      base64Encode(iv)
+      base64Encode(
+        iv
+      )
+
   };
 }
 
@@ -201,6 +282,7 @@ export async function onRequestGet(
         context
       );
 
+
     if (!user) {
 
       return Response.json(
@@ -212,7 +294,9 @@ export async function onRequestGet(
           status: 401
         }
       );
+
     }
+
 
     const result =
       await context.env.DB
@@ -234,14 +318,22 @@ export async function onRequestGet(
           WHERE user_id = ?
           ORDER BY created_at DESC
         `)
-        .bind(user.sub)
+        .bind(
+          user.sub
+        )
         .all();
 
+
     return Response.json({
-      success: true,
+
+      success:
+        true,
+
       sites:
         result.results || []
+
     });
+
 
   } catch (error) {
 
@@ -251,12 +343,14 @@ export async function onRequestGet(
           "حدث خطأ أثناء جلب المواقع",
 
         details:
-          error.message
+          error?.message ||
+          "Unknown error"
       },
       {
         status: 500
       }
     );
+
   }
 }
 
@@ -276,6 +370,7 @@ export async function onRequestPost(
         context
       );
 
+
     if (!user) {
 
       return Response.json(
@@ -287,35 +382,43 @@ export async function onRequestPost(
           status: 401
         }
       );
+
     }
+
 
     const body =
       await context.request.json();
+
 
     const name =
       String(
         body.name || ""
       ).trim();
 
+
     const hostname =
       String(
         body.hostname || ""
       ).trim();
+
 
     const port =
       Number(
         body.port || 22
       );
 
+
     const username =
       String(
         body.username || ""
       ).trim();
 
+
     const password =
       String(
         body.ssh_password || ""
       );
+
 
     const workingDirectory =
       String(
@@ -323,6 +426,10 @@ export async function onRequestPost(
         "/"
       ).trim();
 
+
+    /* ========================================
+       Validate input
+    ======================================== */
 
     if (
       !name ||
@@ -340,6 +447,7 @@ export async function onRequestPost(
           status: 400
         }
       );
+
     }
 
 
@@ -358,11 +466,17 @@ export async function onRequestPost(
           status: 400
         }
       );
+
     }
 
 
+    /* ========================================
+       Encryption secret
+    ======================================== */
+
     const encryptionSecret =
       context.env.SSH_ENCRYPTION_KEY;
+
 
     if (!encryptionSecret) {
 
@@ -375,8 +489,13 @@ export async function onRequestPost(
           status: 500
         }
       );
+
     }
 
+
+    /* ========================================
+       Encrypt password
+    ======================================== */
 
     const encrypted =
       await encryptPassword(
@@ -385,9 +504,17 @@ export async function onRequestPost(
       );
 
 
+    /* ========================================
+       Generate site ID
+    ======================================== */
+
     const id =
       generateId();
 
+
+    /* ========================================
+       Insert site
+    ======================================== */
 
     await context.env.DB
       .prepare(`
@@ -404,7 +531,19 @@ export async function onRequestPost(
           ssh_password_iv,
           ssh_test_status
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (
+          ?,
+          ?,
+          ?,
+          ?,
+          ?,
+          ?,
+          ?,
+          ?,
+          ?,
+          ?,
+          ?
+        )
       `)
       .bind(
         id,
@@ -422,33 +561,55 @@ export async function onRequestPost(
       .run();
 
 
+    /* ========================================
+       Success
+    ======================================== */
+
     return Response.json(
       {
-        success: true,
+        success:
+          true,
 
         message:
           "تمت إضافة الموقع وحفظ بيانات SSH بشكل مشفر",
 
         site: {
+
           id,
+
           name,
+
           hostname,
+
           port,
+
           username,
+
           working_directory:
             workingDirectory,
+
           status:
             "active",
+
           ssh_test_status:
             "not_tested"
+
         }
+
       },
       {
         status: 201
       }
     );
 
+
   } catch (error) {
+
+    console.error(
+      "Add site error:",
+      error
+    );
+
 
     return Response.json(
       {
@@ -456,188 +617,14 @@ export async function onRequestPost(
           "حدث خطأ أثناء إضافة الموقع",
 
         details:
-          error.message
+          error?.message ||
+          "Unknown error"
       },
       {
         status: 500
       }
     );
-  }
-}
 
-
-/* ========================================
-   POST /api/sites/ssh-test
-======================================== */
-
-export async function onRequestPostSSHTest(
-  context
-) {
-
-  try {
-
-    const user =
-      await getAuthenticatedUser(
-        context
-      );
-
-    if (!user) {
-
-      return Response.json(
-        {
-          error:
-            "غير مصرح"
-        },
-        {
-          status: 401
-        }
-      );
-    }
-
-    const body =
-      await context.request.json();
-
-    const siteId =
-      String(
-        body.id || ""
-      ).trim();
-
-    if (!siteId) {
-
-      return Response.json(
-        {
-          error:
-            "معرف الموقع مطلوب"
-        },
-        {
-          status: 400
-        }
-      );
-    }
-
-
-    const siteResult =
-      await context.env.DB
-        .prepare(`
-          SELECT
-            id,
-            name,
-            hostname,
-            port,
-            username,
-            ssh_password_ciphertext,
-            ssh_password_iv
-          FROM sites
-          WHERE id = ?
-          AND user_id = ?
-          LIMIT 1
-        `)
-        .bind(
-          siteId,
-          user.sub
-        )
-        .first();
-
-
-    if (!siteResult) {
-
-      return Response.json(
-        {
-          error:
-            "الموقع غير موجود"
-        },
-        {
-          status: 404
-        }
-      );
-    }
-
-
-    const requestId =
-      generateId();
-
-    const expiresAt =
-      new Date(
-        Date.now() + 5 * 60 * 1000
-      ).toISOString();
-
-
-    await context.env.DB
-      .prepare(`
-        INSERT INTO ssh_requests (
-          id,
-          site_id,
-          user_id,
-          status,
-          created_at,
-          expires_at
-        )
-        VALUES (?, ?, ?, ?, ?, ?)
-      `)
-      .bind(
-        requestId,
-        siteId,
-        user.sub,
-        "pending",
-        new Date().toISOString(),
-        expiresAt
-      )
-      .run();
-
-
-    await context.env.DB
-      .prepare(`
-        UPDATE sites
-        SET
-          ssh_test_status = ?,
-          ssh_test_message = ?,
-          ssh_tested_at = NULL
-        WHERE id = ?
-        AND user_id = ?
-      `)
-      .bind(
-        "testing",
-        "جاري اختبار اتصال SSH...",
-        siteId,
-        user.sub
-      )
-      .run();
-
-
-    /*
-     * في هذه المرحلة ننشئ الطلب فقط.
-     *
-     * تشغيل GitHub Action وربطه بهذا request
-     * سيكون في الخطوة التالية.
-     */
-
-    return Response.json({
-      success: true,
-
-      request_id:
-        requestId,
-
-      status:
-        "pending",
-
-      message:
-        "تم إنشاء طلب اختبار SSH"
-    });
-
-  } catch (error) {
-
-    return Response.json(
-      {
-        error:
-          "حدث خطأ أثناء إنشاء اختبار SSH",
-
-        details:
-          error.message
-      },
-      {
-        status: 500
-      }
-    );
   }
 }
 
@@ -657,6 +644,7 @@ export async function onRequestDelete(
         context
       );
 
+
     if (!user) {
 
       return Response.json(
@@ -668,11 +656,13 @@ export async function onRequestDelete(
           status: 401
         }
       );
+
     }
 
 
     const body =
       await context.request.json();
+
 
     const siteId =
       String(
@@ -691,6 +681,7 @@ export async function onRequestDelete(
           status: 400
         }
       );
+
     }
 
 
@@ -722,14 +713,18 @@ export async function onRequestDelete(
           status: 404
         }
       );
+
     }
 
 
     return Response.json({
-      success: true,
+
+      success:
+        true,
 
       message:
         "تم حذف الموقع من النظام بنجاح"
+
     });
 
 
@@ -741,11 +736,13 @@ export async function onRequestDelete(
           "حدث خطأ أثناء حذف الموقع",
 
         details:
-          error.message
+          error?.message ||
+          "Unknown error"
       },
       {
         status: 500
       }
     );
+
   }
 }
