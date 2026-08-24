@@ -33,6 +33,12 @@
       font-size: 24px;
     }
 
+    .subtitle {
+      color: #94a3b8;
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+
     input,
     button {
       width: 100%;
@@ -47,6 +53,11 @@
     input {
       background: #334155;
       color: white;
+      outline: none;
+    }
+
+    input:focus {
+      outline: 2px solid #3b82f6;
     }
 
     button {
@@ -60,6 +71,19 @@
       background: #3b82f6;
     }
 
+    button.verify {
+      background: #8b5cf6;
+    }
+
+    button.logout {
+      background: #ef4444;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
     #result {
       margin-top: 20px;
       padding: 15px;
@@ -68,6 +92,16 @@
       white-space: pre-wrap;
       word-break: break-word;
       font-size: 14px;
+      line-height: 1.7;
+      min-height: 50px;
+    }
+
+    .status {
+      margin-top: 15px;
+      padding: 10px;
+      border-radius: 8px;
+      background: #334155;
+      font-size: 13px;
     }
   </style>
 </head>
@@ -76,28 +110,52 @@
 
   <div class="card">
 
-    <h1>🔐 اختبار نظام الدخول</h1>
+    <h1>🔐 اختبار Authentication</h1>
+
+    <div class="subtitle">
+      Arabic AI Site Manager
+    </div>
 
     <input
       id="email"
       type="email"
       value="instalikeusa.ltd@gmail.com"
       placeholder="البريد الإلكتروني"
+      autocomplete="email"
     >
 
     <input
       id="password"
       type="password"
       placeholder="كلمة المرور"
+      autocomplete="current-password"
     >
 
     <button onclick="register()">
       إنشاء الحساب
     </button>
 
-    <button class="login" onclick="login()">
+    <button
+      class="login"
+      onclick="login()">
       تسجيل الدخول
     </button>
+
+    <button
+      class="verify"
+      onclick="checkMe()">
+      🔎 التحقق من الجلسة
+    </button>
+
+    <button
+      class="logout"
+      onclick="logout()">
+      تسجيل الخروج
+    </button>
+
+    <div class="status" id="status">
+      الحالة: لم يتم تسجيل الدخول
+    </div>
 
     <div id="result">
       جاهز للاختبار...
@@ -107,25 +165,65 @@
 
 <script>
 
-const result = document.getElementById("result");
+const result =
+  document.getElementById("result");
+
+const status =
+  document.getElementById("status");
+
 
 function show(data) {
+
   result.textContent =
     typeof data === "string"
       ? data
-      : JSON.stringify(data, null, 2);
+      : JSON.stringify(
+          data,
+          null,
+          2
+        );
 }
+
+
+function setStatus(text) {
+
+  status.textContent =
+    `الحالة: ${text}`;
+}
+
+
+/* =========================
+   REGISTER
+========================= */
 
 async function register() {
 
   const email =
-    document.getElementById("email").value.trim();
+    document
+      .getElementById("email")
+      .value
+      .trim();
 
   const password =
-    document.getElementById("password").value;
+    document
+      .getElementById("password")
+      .value;
 
   if (!email || !password) {
-    show("اكتب البريد وكلمة المرور أولًا.");
+
+    show(
+      "اكتب البريد الإلكتروني وكلمة المرور أولًا."
+    );
+
+    return;
+  }
+
+  if (password.length < 8) {
+
+    show(
+      "كلمة المرور يجب أن تكون 8 أحرف على الأقل."
+    );
+
     return;
   }
 
@@ -133,28 +231,43 @@ async function register() {
 
   try {
 
-    const response = await fetch(
-      "/api/auth/register",
-      {
-        method: "POST",
+    const response =
+      await fetch(
+        "/api/auth/register",
+        {
+          method: "POST",
 
-        headers: {
-          "Content-Type": "application/json"
-        },
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
 
-        body: JSON.stringify({
-          email,
-          password
-        })
-      }
-    );
+          body: JSON.stringify({
+            email,
+            password
+          })
+        }
+      );
 
-    const data = await response.json();
+    const data =
+      await response.json();
 
     show({
-      http_status: response.status,
+      http_status:
+        response.status,
+
       response: data
     });
+
+    if (
+      response.status === 201 &&
+      data.success
+    ) {
+
+      setStatus(
+        "تم إنشاء الحساب بنجاح"
+      );
+    }
 
   } catch (error) {
 
@@ -166,16 +279,30 @@ async function register() {
   }
 }
 
+
+/* =========================
+   LOGIN
+========================= */
+
 async function login() {
 
   const email =
-    document.getElementById("email").value.trim();
+    document
+      .getElementById("email")
+      .value
+      .trim();
 
   const password =
-    document.getElementById("password").value;
+    document
+      .getElementById("password")
+      .value;
 
   if (!email || !password) {
-    show("اكتب البريد وكلمة المرور أولًا.");
+
+    show(
+      "اكتب البريد الإلكتروني وكلمة المرور أولًا."
+    );
+
     return;
   }
 
@@ -183,36 +310,59 @@ async function login() {
 
   try {
 
-    const response = await fetch(
-      "/api/auth/login",
-      {
-        method: "POST",
+    const response =
+      await fetch(
+        "/api/auth/login",
+        {
+          method: "POST",
 
-        headers: {
-          "Content-Type": "application/json"
-        },
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
 
-        body: JSON.stringify({
-          email,
-          password
-        })
-      }
-    );
+          body: JSON.stringify({
+            email,
+            password
+          })
+        }
+      );
 
-    const data = await response.json();
+    const data =
+      await response.json();
+
+    /*
+      حفظ JWT في LocalStorage.
+      لا يتم عرض الـToken في الصفحة.
+    */
 
     if (data.token) {
+
       localStorage.setItem(
         "arabic_ai_token",
         data.token
       );
+
+      setStatus(
+        "تم تسجيل الدخول بنجاح"
+      );
     }
 
     show({
-      http_status: response.status,
-      response: data,
+      http_status:
+        response.status,
+
+      success:
+        data.success || false,
+
+      user:
+        data.user || null,
+
       token_saved:
-        Boolean(data.token)
+        Boolean(data.token),
+
+      error:
+        data.error || null
     });
 
   } catch (error) {
@@ -224,6 +374,131 @@ async function login() {
 
   }
 }
+
+
+/* =========================
+   CHECK SESSION
+========================= */
+
+async function checkMe() {
+
+  const token =
+    localStorage.getItem(
+      "arabic_ai_token"
+    );
+
+  if (!token) {
+
+    show(
+      "لا توجد جلسة محفوظة. سجل الدخول أولًا."
+    );
+
+    setStatus(
+      "غير مسجل الدخول"
+    );
+
+    return;
+  }
+
+  show(
+    "جاري التحقق من الجلسة..."
+  );
+
+  try {
+
+    const response =
+      await fetch(
+        "/api/auth/me",
+        {
+          method: "GET",
+
+          headers: {
+            "Authorization":
+              `Bearer ${token}`
+          }
+        }
+      );
+
+    const data =
+      await response.json();
+
+    show({
+      http_status:
+        response.status,
+
+      response: data
+    });
+
+    if (
+      response.ok &&
+      data.authenticated
+    ) {
+
+      setStatus(
+        `مسجل الدخول: ${data.user.email}`
+      );
+
+    } else {
+
+      setStatus(
+        "الجلسة غير صالحة"
+      );
+    }
+
+  } catch (error) {
+
+    show({
+      error: "Network error",
+      details: error.message
+    });
+
+  }
+}
+
+
+/* =========================
+   LOGOUT
+========================= */
+
+function logout() {
+
+  localStorage.removeItem(
+    "arabic_ai_token"
+  );
+
+  setStatus(
+    "تم تسجيل الخروج"
+  );
+
+  show(
+    "تم حذف جلسة الدخول من هذا الجهاز."
+  );
+}
+
+
+/* =========================
+   AUTO CHECK
+========================= */
+
+window.addEventListener(
+  "load",
+  () => {
+
+    const token =
+      localStorage.getItem(
+        "arabic_ai_token"
+      );
+
+    if (token) {
+
+      setStatus(
+        "توجد جلسة محفوظة"
+      );
+
+    }
+
+  }
+);
 
 </script>
 
