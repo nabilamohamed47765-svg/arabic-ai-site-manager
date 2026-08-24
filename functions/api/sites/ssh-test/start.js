@@ -15,7 +15,13 @@ function base64UrlDecode(value) {
   return bytes;
 }
 
+
 async function verifyJWT(token, secret) {
+
+  if (!token || !secret) {
+    return null;
+  }
+
   const parts = token.split(".");
 
   if (parts.length !== 3) {
@@ -24,34 +30,44 @@ async function verifyJWT(token, secret) {
 
   const [header, payload, signature] = parts;
 
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(secret),
-    {
-      name: "HMAC",
-      hash: "SHA-256"
-    },
-    false,
-    ["verify"]
-  );
-
-  const valid = await crypto.subtle.verify(
-    "HMAC",
-    key,
-    base64UrlDecode(signature),
-    new TextEncoder().encode(`${header}.${payload}`)
-  );
-
-  if (!valid) {
-    return null;
-  }
-
   try {
-    const decoded = JSON.parse(
-      new TextDecoder().decode(
-        base64UrlDecode(payload)
-      )
-    );
+
+    const key =
+      await crypto.subtle.importKey(
+        "raw",
+        new TextEncoder().encode(secret),
+        {
+          name: "HMAC",
+          hash: "SHA-256"
+        },
+        false,
+        ["verify"]
+      );
+
+
+    const valid =
+      await crypto.subtle.verify(
+        "HMAC",
+        key,
+        base64UrlDecode(signature),
+        new TextEncoder().encode(
+          `${header}.${payload}`
+        )
+      );
+
+
+    if (!valid) {
+      return null;
+    }
+
+
+    const decoded =
+      JSON.parse(
+        new TextDecoder().decode(
+          base64UrlDecode(payload)
+        )
+      );
+
 
     if (
       !decoded.exp ||
@@ -61,12 +77,16 @@ async function verifyJWT(token, secret) {
       return null;
     }
 
+
     return decoded;
 
   } catch {
+
     return null;
+
   }
 }
+
 
 async function getUser(context) {
 
@@ -75,6 +95,7 @@ async function getUser(context) {
       "Authorization"
     );
 
+
   if (
     !authorization ||
     !authorization.startsWith("Bearer ")
@@ -82,34 +103,56 @@ async function getUser(context) {
     return null;
   }
 
+
+  const token =
+    authorization.substring(7);
+
+
   return await verifyJWT(
-    authorization.substring(7),
+    token,
     context.env.JWT_SECRET
   );
 }
+
 
 export async function onRequestPost(context) {
 
   try {
 
+    /*
+     * ================================
+     * 1. Verify logged-in user
+     * ================================
+     */
+
     const user =
       await getUser(context);
+
 
     if (!user) {
 
       return Response.json(
         {
-          error: "غير مصرح"
+          error:
+            "غير مصرح"
         },
         {
           status: 401
         }
       );
+
     }
 
 
+    /*
+     * ================================
+     * 2. Read request body
+     * ================================
+     */
+
     const body =
       await context.request.json();
+
 
     const requestId =
       String(
@@ -128,8 +171,15 @@ export async function onRequestPost(context) {
           status: 400
         }
       );
+
     }
 
+
+    /*
+     * ================================
+     * 3. Get SSH request from D1
+     * ================================
+     */
 
     const request =
       await context.env.DB
@@ -163,8 +213,15 @@ export async function onRequestPost(context) {
           status: 404
         }
       );
+
     }
 
+
+    /*
+     * ================================
+     * 4. Check request status
+     * ================================
+     */
 
     if (
       request.status !== "pending"
@@ -173,81 +230,114 @@ export async function onRequestPost(context) {
       return Response.json(
         {
           error:
-            "طلب SSH ليس في حالة انتظار"
+            "طلب SSH ليس في حالة انتظار",
+
+          status:
+            request.status
         },
         {
           status: 409
         }
       );
+
     }
 
+
+    /*
+     * ================================
+     * 5. Check expiration
+     * ================================
+     */
 
     if (
-      new Date(
-        request.expires_at
-      ).getTime() < Date.now()
+      request.expires_at
     ) {
 
-      await context.env.DB
-        .prepare(`
-          UPDATE ssh_requests
-          SET status = ?
-          WHERE id = ?
-          AND user_id = ?
-        `)
-        .bind(
-          "expired",
-          requestId,
-          user.sub
-        )
-        .run();
+      const expiresAt =
+        new Date(
+          request.expires_at
+        ).getTime();
 
 
-      return Response.json(
-        {
-          error:
-            "انتهت صلاحية طلب SSH"
-        },
-        {
-          status: 410
-        }
-      );
+      if (
+        Number.isFinite(expiresAt) &&
+        expiresAt < Date.now()
+      ) {
+
+        await context.env.DB
+          .prepare(`
+            UPDATE ssh_requests
+            SET
+              status = ?
+            WHERE id = ?
+            AND user_id = ?
+          `)
+          .bind(
+            "expired",
+            requestId,
+            user.sub
+          )
+          .run();
+
+
+        return Response.json(
+          {
+            error:
+              "انتهت صلاحية طلب SSH"
+          },
+          {
+            status: 410
+          }
+        );
+
+      }
+
     }
 
+
+    /*
+     * ================================
+     * 6. GitHub token
+     * ================================
+     */
 
     const githubToken =
       context.env.GITHUB_ACTIONS_TOKEN;
+
 
     if (!githubToken) {
 
       return Response.json(
         {
           error:
-            "GITHUB_ACTIONS_TOKEN غير مضبوط"
+            "GITHUB_ACTIONS_TOKEN غير مضبوط في Cloudflare"
         },
         {
           status: 500
         }
       );
+
     }
 
+
+    /*
+     * ================================
+     * 7. GitHub repository
+     *
+     * ثابت لتجنب الحاجة إلى
+     * Secret إضافي.
+     * ================================
+     */
 
     const repository =
-      context.env.GITHUB_REPOSITORY;
+      "nabilamohamed47765-svg/arabic-ai-site-manager";
 
-    if (!repository) {
 
-      return Response.json(
-        {
-          error:
-            "GITHUB_REPOSITORY غير مضبوط"
-        },
-        {
-          status: 500
-        }
-      );
-    }
-
+    /*
+     * ================================
+     * 8. Workflow file
+     * ================================
+     */
 
     const workflowFile =
       "ssh-test.yml";
@@ -257,6 +347,12 @@ export async function onRequestPost(context) {
       `https://api.github.com/repos/${repository}/actions/workflows/${workflowFile}/dispatches`;
 
 
+    /*
+     * ================================
+     * 9. Start GitHub Actions
+     * ================================
+     */
+
     const githubResponse =
       await fetch(
         githubUrl,
@@ -264,6 +360,7 @@ export async function onRequestPost(context) {
           method: "POST",
 
           headers: {
+
             "Authorization":
               `Bearer ${githubToken}`,
 
@@ -278,19 +375,28 @@ export async function onRequestPost(context) {
 
             "User-Agent":
               "Arabic-AI-Site-Manager"
+
           },
 
-          body: JSON.stringify({
-            ref: "main",
+          body:
+            JSON.stringify({
+              ref: "main",
 
-            inputs: {
-              request_id:
-                requestId
-            }
-          })
+              inputs: {
+                request_id:
+                  requestId
+              }
+            })
+
         }
       );
 
+
+    /*
+     * ================================
+     * 10. Check GitHub response
+     * ================================
+     */
 
     if (
       !githubResponse.ok
@@ -298,6 +404,7 @@ export async function onRequestPost(context) {
 
       const githubError =
         await githubResponse.text();
+
 
       return Response.json(
         {
@@ -311,13 +418,21 @@ export async function onRequestPost(context) {
           status: 502
         }
       );
+
     }
 
+
+    /*
+     * ================================
+     * 11. Mark request as running
+     * ================================
+     */
 
     await context.env.DB
       .prepare(`
         UPDATE ssh_requests
-        SET status = ?
+        SET
+          status = ?
         WHERE id = ?
         AND user_id = ?
       `)
@@ -329,9 +444,16 @@ export async function onRequestPost(context) {
       .run();
 
 
+    /*
+     * ================================
+     * 12. Success
+     * ================================
+     */
+
     return Response.json({
 
-      success: true,
+      success:
+        true,
 
       request_id:
         requestId,
@@ -340,11 +462,18 @@ export async function onRequestPost(context) {
         "running",
 
       message:
-        "تم تشغيل اختبار SSH"
+        "تم تشغيل اختبار SSH بنجاح"
+
     });
 
 
   } catch (error) {
+
+    console.error(
+      "SSH executor error:",
+      error
+    );
+
 
     return Response.json(
       {
@@ -352,7 +481,8 @@ export async function onRequestPost(context) {
           "حدث خطأ أثناء تشغيل اختبار SSH",
 
         details:
-          error.message
+          error?.message ||
+          "Unknown error"
       },
       {
         status: 500
@@ -360,4 +490,5 @@ export async function onRequestPost(context) {
     );
 
   }
+
 }
