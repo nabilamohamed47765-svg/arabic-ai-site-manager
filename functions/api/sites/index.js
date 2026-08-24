@@ -33,7 +33,6 @@ async function verifyJWT(token, secret) {
   }
 
   const [header, payload, signature] = parts;
-
   const data = `${header}.${payload}`;
 
   const key = await crypto.subtle.importKey(
@@ -116,11 +115,9 @@ function generateId() {
 }
 
 
-/*
-========================================
-  تشفير كلمة مرور SSH
-========================================
-*/
+/* ========================================
+   تشفير SSH Password
+======================================== */
 
 async function encryptPassword(
   password,
@@ -168,11 +165,9 @@ async function encryptPassword(
 }
 
 
-/*
-========================================
-  GET /api/sites
-========================================
-*/
+/* ========================================
+   GET /api/sites
+======================================== */
 
 export async function onRequestGet(context) {
 
@@ -213,10 +208,6 @@ export async function onRequestGet(context) {
         .bind(user.sub)
         .all();
 
-    /*
-      لا نرجع Password أبدًا
-    */
-
     return Response.json({
       success: true,
       sites: result.results || []
@@ -240,11 +231,9 @@ export async function onRequestGet(context) {
 }
 
 
-/*
-========================================
-  POST /api/sites
-========================================
-*/
+/* ========================================
+   POST /api/sites
+======================================== */
 
 export async function onRequestPost(context) {
 
@@ -299,10 +288,6 @@ export async function onRequestPost(context) {
       ).trim();
 
 
-    /*
-      التحقق
-    */
-
     if (
       !name ||
       !hostname ||
@@ -340,10 +325,6 @@ export async function onRequestPost(context) {
     }
 
 
-    /*
-      مفتاح التشفير
-    */
-
     const encryptionSecret =
       context.env.SSH_ENCRYPTION_KEY;
 
@@ -361,10 +342,6 @@ export async function onRequestPost(context) {
     }
 
 
-    /*
-      تشفير Password
-    */
-
     const encrypted =
       await encryptPassword(
         password,
@@ -375,10 +352,6 @@ export async function onRequestPost(context) {
     const id =
       generateId();
 
-
-    /*
-      تخزين الموقع
-    */
 
     await context.env.DB
       .prepare(`
@@ -441,6 +414,110 @@ export async function onRequestPost(context) {
       {
         error:
           "حدث خطأ أثناء إضافة الموقع",
+
+        details:
+          error.message
+      },
+      {
+        status: 500
+      }
+    );
+  }
+}
+
+
+/* ========================================
+   DELETE /api/sites
+======================================== */
+
+export async function onRequestDelete(context) {
+
+  try {
+
+    const user =
+      await getAuthenticatedUser(context);
+
+    if (!user) {
+
+      return Response.json(
+        {
+          error: "غير مصرح"
+        },
+        {
+          status: 401
+        }
+      );
+    }
+
+
+    const body =
+      await context.request.json();
+
+    const siteId =
+      String(
+        body.id || ""
+      ).trim();
+
+
+    if (!siteId) {
+
+      return Response.json(
+        {
+          error:
+            "معرف الموقع مطلوب"
+        },
+        {
+          status: 400
+        }
+      );
+    }
+
+
+    const result =
+      await context.env.DB
+        .prepare(`
+          DELETE FROM sites
+          WHERE id = ?
+          AND user_id = ?
+        `)
+        .bind(
+          siteId,
+          user.sub
+        )
+        .run();
+
+
+    if (
+      !result.meta ||
+      result.meta.changes === 0
+    ) {
+
+      return Response.json(
+        {
+          error:
+            "الموقع غير موجود أو لا تملك صلاحية حذفه"
+        },
+        {
+          status: 404
+        }
+      );
+    }
+
+
+    return Response.json({
+      success: true,
+
+      message:
+        "تم حذف الموقع من النظام بنجاح"
+    });
+
+
+  } catch (error) {
+
+    return Response.json(
+      {
+        error:
+          "حدث خطأ أثناء حذف الموقع",
 
         details:
           error.message
