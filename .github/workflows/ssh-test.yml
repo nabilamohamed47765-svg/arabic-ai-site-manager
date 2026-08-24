@@ -1,692 +1,536 @@
 name: SSH Connection Test
 
 on:
-  workflow_dispatch:
-    inputs:
-      request_id:
-        description: "SSH Request ID"
-        required: true
-        type: string
+workflow_dispatch:
+inputs:
+request_id:
+description: "SSH Request ID"
+required: true
+type: string
 
 jobs:
-  ssh-test:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
+ssh-test:
+runs-on: ubuntu-latest
+timeout-minutes: 5
 
-    steps:
+steps:
 
-      # ========================================
-      # 1. Checkout
-      # ========================================
+  # ========================================
+  # 1. Checkout
+  # ========================================
 
-      - name: Checkout
-        uses: actions/checkout@v4
-
-
-      # ========================================
-      # 2. Node.js 22
-      # ========================================
-
-      - name: Setup Node.js 22
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
+  - name: Checkout
+    uses: actions/checkout@v4
 
 
-      # ========================================
-      # 3. Install SSH tools + Wrangler
-      # ========================================
+  # ========================================
+  # 2. Node.js 22
+  # ========================================
 
-      - name: Install SSH tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y openssh-client sshpass
-
-          npm install --global wrangler@latest
-
-          node --version
-          npm --version
-          wrangler --version
+  - name: Setup Node.js 22
+    uses: actions/setup-node@v4
+    with:
+      node-version: 22
 
 
-      # ========================================
-      # 4. Validate Request ID
-      # ========================================
+  # ========================================
+  # 3. Install SSH tools + Wrangler
+  # ========================================
 
-      - name: Validate request ID
-        env:
-          REQUEST_ID: ${{ inputs.request_id }}
-        run: |
-          if [[ ! "$REQUEST_ID" =~ ^[A-Za-z0-9_-]{20,100}$ ]]; then
-            echo "Invalid request_id"
-            exit 1
-          fi
+  - name: Install SSH tools
+    run: |
+      set -e
 
-          echo "Request ID validated."
+      sudo apt-get update
+      sudo apt-get install -y openssh-client sshpass
 
+      npm install --global wrangler@latest
 
-      # ========================================
-      # 5. Read SSH request from Cloudflare D1
-      # ========================================
+      echo "Node version:"
+      node --version
 
-      - name: Read SSH request from D1
-        id: request
-        env:
-          REQUEST_ID: ${{ inputs.request_id }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
+      echo "NPM version:"
+      npm --version
 
-          set -e
-
-          python3 <<'PY'
-
-          import os
-          import subprocess
-          import json
-          from datetime import datetime, timezone
-
-          request_id = os.environ["REQUEST_ID"]
+      echo "Wrangler version:"
+      wrangler --version
 
 
-          def sql_escape(value):
-              return value.replace("'", "''")
+  # ========================================
+  # 4. Validate Request ID
+  # ========================================
+
+  - name: Validate request ID
+    env:
+      REQUEST_ID: ${{ inputs.request_id }}
+    run: |
+      set -e
+
+      if [[ ! "$REQUEST_ID" =~ ^[A-Za-z0-9_-]{20,100}$ ]]; then
+        echo "Invalid request_id"
+        exit 1
+      fi
+
+      echo "Request ID validated."
 
 
-          sql = f"""
-          SELECT
-            r.id,
-            r.status,
-            r.site_id,
-            r.user_id,
-            r.expires_at,
-            s.hostname,
-            s.port,
-            s.username,
-            s.ssh_password_ciphertext,
-            s.ssh_password_iv
-          FROM ssh_requests r
-          JOIN sites s
-            ON s.id = r.site_id
-          WHERE r.id = '{sql_escape(request_id)}'
-          LIMIT 1
-          """
+  # ========================================
+  # 5. Read SSH request from Cloudflare D1
+  # ========================================
 
+  - name: Read SSH request from D1
+    id: request
+    env:
+      REQUEST_ID: ${{ inputs.request_id }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    run: |
+      set -e
 
-          result = subprocess.run(
-              [
-                  "wrangler",
-                  "d1",
-                  "execute",
-                  "DB",
-                  "--remote",
-                  "--json",
-                  "--command",
-                  sql
-              ],
-              capture_output=True,
-              text=True,
-              check=False
-          )
+      python3 <<'PY'
+      import os
+      import subprocess
+      import json
+      from datetime import datetime, timezone
 
+      request_id = os.environ["REQUEST_ID"]
 
-          if result.returncode != 0:
+      def sql_escape(value):
+          return value.replace("'", "''")
 
-              print("Wrangler D1 error:")
-              print(result.stderr)
+      sql = f"""
+      SELECT
+        r.id,
+        r.status,
+        r.site_id,
+        r.user_id,
+        r.expires_at,
+        s.hostname,
+        s.port,
+        s.username,
+        s.ssh_password_ciphertext,
+        s.ssh_password_iv
+      FROM ssh_requests r
+      JOIN sites s
+        ON s.id = r.site_id
+      WHERE r.id = '{sql_escape(request_id)}'
+      LIMIT 1
+      """
 
+      result = subprocess.run(
+          [
+              "wrangler",
+              "d1",
+              "execute",
+              "DB",
+              "--remote",
+              "--json",
+              "--command",
+              sql
+          ],
+          capture_output=True,
+          text=True,
+          check=False
+      )
+
+      if result.returncode != 0:
+          print("Wrangler D1 error:")
+          print(result.stderr)
+          raise SystemExit(result.returncode)
+
+      try:
+          data = json.loads(result.stdout)
+      except Exception as error:
+          print("Could not parse Wrangler JSON output:")
+          print(result.stdout)
+          raise SystemExit(str(error))
+
+      rows = []
+
+      for item in data:
+          if isinstance(item, dict) and "results" in item:
+              rows.extend(item["results"])
+
+      if not rows:
+          raise SystemExit("SSH request not found")
+
+      row = rows[0]
+
+      required = [
+          "hostname",
+          "port",
+          "username",
+          "ssh_password_ciphertext",
+          "ssh_password_iv"
+      ]
+
+      for field in required:
+          if not row.get(field):
               raise SystemExit(
-                  result.returncode
+                  f"Missing SSH field: {field}"
               )
 
+      if row.get("status") not in ["pending", "running"]:
+          raise SystemExit(
+              "Invalid request status: "
+              + str(row.get("status"))
+          )
 
-          try:
+      if row.get("expires_at"):
+          expires = datetime.fromisoformat(
+              row["expires_at"].replace("Z", "+00:00")
+          )
 
-              data = json.loads(
-                  result.stdout
+          if expires < datetime.now(timezone.utc):
+              raise SystemExit("SSH request expired")
+
+      output = {
+          "hostname": str(row["hostname"]),
+          "port": str(int(row["port"])),
+          "username": str(row["username"]),
+          "ciphertext": str(
+              row["ssh_password_ciphertext"]
+          ),
+          "iv": str(
+              row["ssh_password_iv"]
+          )
+      }
+
+      with open(
+          os.environ["GITHUB_OUTPUT"],
+          "a",
+          encoding="utf-8"
+      ) as f:
+
+          for key, value in output.items():
+              f.write(
+                  f"{key}<<EOF\n"
+                  f"{value}\n"
+                  f"EOF\n"
               )
 
-          except Exception as error:
-
-              print(
-                  "Could not parse Wrangler JSON output:"
-              )
-
-              print(result.stdout)
-
-              raise SystemExit(
-                  str(error)
-              )
-
-
-          rows = []
-
-
-          for item in data:
-
-              if (
-                  isinstance(item, dict)
-                  and "results" in item
-              ):
-
-                  rows.extend(
-                      item["results"]
-                  )
-
-
-          if not rows:
-
-              raise SystemExit(
-                  "SSH request not found"
-              )
-
-
-          row = rows[0]
-
-
-          required = [
-              "hostname",
-              "port",
-              "username",
-              "ssh_password_ciphertext",
-              "ssh_password_iv"
-          ]
-
-
-          for field in required:
-
-              if not row.get(field):
-
-                  raise SystemExit(
-                      f"Missing SSH field: {field}"
-                  )
-
-
-          if row.get("status") not in [
-              "pending",
-              "running"
-          ]:
-
-              raise SystemExit(
-                  "Invalid request status: "
-                  + str(row.get("status"))
-              )
-
-
-          if row.get("expires_at"):
-
-              expires = datetime.fromisoformat(
-                  row["expires_at"]
-                  .replace("Z", "+00:00")
-              )
-
-
-              if (
-                  expires <
-                  datetime.now(timezone.utc)
-              ):
-
-                  raise SystemExit(
-                      "SSH request expired"
-                  )
-
-
-          output = {
-
-              "hostname":
-                  str(row["hostname"]),
-
-              "port":
-                  str(int(row["port"])),
-
-              "username":
-                  str(row["username"]),
-
-              "ciphertext":
-                  str(
-                      row[
-                          "ssh_password_ciphertext"
-                      ]
-                  ),
-
-              "iv":
-                  str(
-                      row[
-                          "ssh_password_iv"
-                      ]
-                  )
-          }
-
-
-          with open(
-              os.environ["GITHUB_OUTPUT"],
-              "a",
-              encoding="utf-8"
-          ) as f:
-
-              for key, value in output.items():
-
-                  f.write(
-                      f"{key}<<EOF\n"
-                      f"{value}\n"
-                      f"EOF\n"
-                  )
-
-
-          print(
-              "SSH request loaded successfully."
-          )
-
-          PY
-
-
-      # ========================================
-      # 6. Decrypt SSH Password
-      # ========================================
-
-      - name: Decrypt SSH password
-        id: decrypt
-        env:
-          SSH_ENCRYPTION_KEY: ${{ secrets.SSH_ENCRYPTION_KEY }}
-          SSH_CIPHERTEXT: ${{ steps.request.outputs.ciphertext }}
-          SSH_IV: ${{ steps.request.outputs.iv }}
-        run: |
-
-          set -e
-
-          node <<'NODE'
-
-          const crypto = require("crypto");
-          const fs = require("fs");
-
-
-          const secret =
-            process.env.SSH_ENCRYPTION_KEY;
-
-
-          if (!secret) {
-
-            throw new Error(
-              "SSH_ENCRYPTION_KEY is missing"
-            );
-
-          }
-
-
-          const ciphertext =
-            Buffer.from(
-              process.env.SSH_CIPHERTEXT,
-              "base64"
-            );
-
-
-          const iv =
-            Buffer.from(
-              process.env.SSH_IV,
-              "base64"
-            );
-
-
-          const key =
-            Buffer.from(
-              secret,
-              "utf8"
-            );
-
-
-          if (
-            key.length !== 16 &&
-            key.length !== 24 &&
-            key.length !== 32
-          ) {
-
-            throw new Error(
-              "SSH_ENCRYPTION_KEY must be 16, 24, or 32 bytes"
-            );
-
-          }
-
-
-          if (
-            iv.length !== 12
-          ) {
-
-            throw new Error(
-              "Invalid AES-GCM IV"
-            );
-
-          }
-
-
-          const tagLength = 16;
-
-
-          if (
-            ciphertext.length <= tagLength
-          ) {
-
-            throw new Error(
-              "Invalid encrypted SSH password"
-            );
-
-          }
-
-
-          const encrypted =
-            ciphertext.subarray(
-              0,
-              ciphertext.length - tagLength
-            );
-
-
-          const authTag =
-            ciphertext.subarray(
-              ciphertext.length - tagLength
-            );
-
-
-          const decipher =
-            crypto.createDecipheriv(
-              `aes-${key.length * 8}-gcm`,
-              key,
-              iv
-            );
-
-
-          decipher.setAuthTag(
-            authTag
-          );
-
-
-          const password =
-            Buffer.concat([
-              decipher.update(
-                encrypted
-              ),
-              decipher.final()
-            ]).toString(
-              "utf8"
-            );
-
-
-          if (!password) {
-
-            throw new Error(
-              "SSH password is empty"
-            );
-
-          }
-
-
-          coreAddMask(password);
-
-
-          fs.appendFileSync(
-            process.env.GITHUB_ENV,
-            `SSHPASS=${password}\n`,
-            {
-              encoding: "utf8"
-            }
-          );
-
-
-          function coreAddMask(value) {
-
-            console.log(
-              "::add-mask::" + value
-            );
-
-          }
-
-
-          console.log(
-            "SSH password decrypted successfully."
-          );
-
-          NODE
-
-
-      # ========================================
-      # 7. Test SSH Connection
-      # ========================================
-
-      - name: Test SSH connection
-        id: ssh
-        env:
-          SSHPASS: ${{ env.SSHPASS }}
-          SSH_HOST: ${{ steps.request.outputs.hostname }}
-          SSH_PORT: ${{ steps.request.outputs.port }}
-          SSH_USER: ${{ steps.request.outputs.username }}
-        run: |
-
-          set +e
-
-
-          echo "Testing SSH connection..."
-
-          echo "Host: $SSH_HOST"
-          echo "Port: $SSH_PORT"
-          echo "User: $SSH_USER"
-
-
-          OUTPUT=$(
-            sshpass -e ssh \
-              -o StrictHostKeyChecking=accept-new \
-              -o ConnectTimeout=20 \
-              -o ConnectionAttempts=1 \
-              -o BatchMode=no \
-              -p "$SSH_PORT" \
-              "$SSH_USER@$SSH_HOST" \
-              "printf 'SSH_CONNECTION_OK'" \
-              2>&1
-          )
-
-
-          EXIT_CODE=$?
-
-
-          if [
-            "$EXIT_CODE" -eq 0
-          ] && [
-            "$OUTPUT" = "SSH_CONNECTION_OK"
-          ]; then
-
-            echo "SSH connection successful."
-
-            echo "result=success" \
-              >> "$GITHUB_OUTPUT"
-
-          else
-
-            echo "SSH connection failed."
-
-            echo "result=failure" \
-              >> "$GITHUB_OUTPUT"
-
-
-            echo "$OUTPUT"
-
-
-            exit 1
-
-          fi
-
-
-      # ========================================
-      # 8. Update Successful Result
-      # ========================================
-
-      - name: Update successful result in D1
-        if: success()
-        env:
-          REQUEST_ID: ${{ inputs.request_id }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-
-          python3 <<'PY'
-
-          import os
-          import subprocess
-
-
-          request_id =
-              os.environ["REQUEST_ID"]
-
-
-          def sql_escape(value):
-              return value.replace(
-                  "'",
-                  "''"
-              )
-
-
-          sql = f"""
-          UPDATE ssh_requests
-          SET
-            status = 'completed',
-            result = 'SSH connection successful',
-            error = NULL,
-            completed_at = CURRENT_TIMESTAMP
-          WHERE id = '{sql_escape(request_id)}'
-          """
-
-
-          subprocess.run(
-              [
-                  "wrangler",
-                  "d1",
-                  "execute",
-                  "DB",
-                  "--remote",
-                  "--command",
-                  sql
-              ],
-              check=True
-          )
-
-
-          sql2 = f"""
-          UPDATE sites
-          SET
-            ssh_test_status = 'success',
-            ssh_test_message = 'تم الاتصال بالسيرفر عبر SSH بنجاح',
-            ssh_tested_at = CURRENT_TIMESTAMP
-          WHERE id = (
-            SELECT site_id
-            FROM ssh_requests
-            WHERE id = '{sql_escape(request_id)}'
-            LIMIT 1
-          )
-          """
-
-
-          subprocess.run(
-              [
-                  "wrangler",
-                  "d1",
-                  "execute",
-                  "DB",
-                  "--remote",
-                  "--command",
-                  sql2
-              ],
-              check=True
-          )
-
-
-          print(
-              "Successful SSH result saved."
-          )
-
-          PY
-
-
-      # ========================================
-      # 9. Update Failed Result
-      # ========================================
-
-      - name: Update failed result in D1
-        if: failure()
-        env:
-          REQUEST_ID: ${{ inputs.request_id }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-
-          python3 <<'PY'
-
-          import os
-          import subprocess
-
-
-          request_id =
-              os.environ["REQUEST_ID"]
-
-
-          def sql_escape(value):
-              return value.replace(
-                  "'",
-                  "''"
-              )
-
-
-          sql = f"""
-          UPDATE ssh_requests
-          SET
-            status = 'failed',
-            result = NULL,
-            error = 'SSH connection failed',
-            completed_at = CURRENT_TIMESTAMP
-          WHERE id = '{sql_escape(request_id)}'
-          """
-
-
-          subprocess.run(
-              [
-                  "wrangler",
-                  "d1",
-                  "execute",
-                  "DB",
-                  "--remote",
-                  "--command",
-                  sql
-              ],
-              check=True
-          )
-
-
-          sql2 = f"""
-          UPDATE sites
-          SET
-            ssh_test_status = 'failed',
-            ssh_test_message = 'فشل الاتصال بالسيرفر عبر SSH',
-            ssh_tested_at = CURRENT_TIMESTAMP
-          WHERE id = (
-            SELECT site_id
-            FROM ssh_requests
-            WHERE id = '{sql_escape(request_id)}'
-            LIMIT 1
-          )
-          """
-
-
-          subprocess.run(
-              [
-                  "wrangler",
-                  "d1",
-                  "execute",
-                  "DB",
-                  "--remote",
-                  "--command",
-                  sql2
-              ],
-              check=True
-          )
-
-
-          print(
-              "Failed SSH result saved."
-          )
-
-          PY
+      print("SSH request loaded successfully.")
+      PY
+
+
+  # ========================================
+  # 6. Decrypt SSH Password
+  # ========================================
+
+  - name: Decrypt SSH password
+    id: decrypt
+    env:
+      SSH_ENCRYPTION_KEY: ${{ secrets.SSH_ENCRYPTION_KEY }}
+      SSH_CIPHERTEXT: ${{ steps.request.outputs.ciphertext }}
+      SSH_IV: ${{ steps.request.outputs.iv }}
+    run: |
+      set -e
+
+      node <<'NODE'
+      const crypto = require("crypto");
+      const fs = require("fs");
+
+      const secret =
+        process.env.SSH_ENCRYPTION_KEY;
+
+      if (!secret) {
+        throw new Error(
+          "SSH_ENCRYPTION_KEY is missing"
+        );
+      }
+
+      const ciphertext =
+        Buffer.from(
+          process.env.SSH_CIPHERTEXT,
+          "base64"
+        );
+
+      const iv =
+        Buffer.from(
+          process.env.SSH_IV,
+          "base64"
+        );
+
+      const key =
+        Buffer.from(
+          secret,
+          "utf8"
+        );
+
+      if (
+        key.length !== 16 &&
+        key.length !== 24 &&
+        key.length !== 32
+      ) {
+        throw new Error(
+          "SSH_ENCRYPTION_KEY must be exactly 16, 24, or 32 bytes"
+        );
+      }
+
+      if (iv.length !== 12) {
+        throw new Error(
+          "Invalid AES-GCM IV. Expected 12 bytes."
+        );
+      }
+
+      const tagLength = 16;
+
+      if (ciphertext.length <= tagLength) {
+        throw new Error(
+          "Invalid encrypted SSH password"
+        );
+      }
+
+      const encrypted =
+        ciphertext.subarray(
+          0,
+          ciphertext.length - tagLength
+        );
+
+      const authTag =
+        ciphertext.subarray(
+          ciphertext.length - tagLength
+        );
+
+      const decipher =
+        crypto.createDecipheriv(
+          `aes-${key.length * 8}-gcm`,
+          key,
+          iv
+        );
+
+      decipher.setAuthTag(authTag);
+
+      const password =
+        Buffer.concat([
+          decipher.update(encrypted),
+          decipher.final()
+        ]).toString("utf8");
+
+      if (!password) {
+        throw new Error(
+          "SSH password is empty"
+        );
+      }
+
+      console.log(
+        "::add-mask::" + password
+      );
+
+      fs.appendFileSync(
+        process.env.GITHUB_ENV,
+        `SSHPASS=${password}\n`,
+        {
+          encoding: "utf8"
+        }
+      );
+
+      console.log(
+        "SSH password decrypted successfully."
+      );
+      NODE
+
+
+  # ========================================
+  # 7. Test SSH Connection
+  # ========================================
+
+  - name: Test SSH connection
+    id: ssh
+    env:
+      SSHPASS: ${{ env.SSHPASS }}
+      SSH_HOST: ${{ steps.request.outputs.hostname }}
+      SSH_PORT: ${{ steps.request.outputs.port }}
+      SSH_USER: ${{ steps.request.outputs.username }}
+    run: |
+      set +e
+
+      echo "Testing SSH connection..."
+      echo "Host: $SSH_HOST"
+      echo "Port: $SSH_PORT"
+      echo "User: $SSH_USER"
+
+      OUTPUT=$(
+        sshpass -e ssh \
+          -o StrictHostKeyChecking=accept-new \
+          -o ConnectTimeout=20 \
+          -o ConnectionAttempts=1 \
+          -o BatchMode=no \
+          -p "$SSH_PORT" \
+          "$SSH_USER@$SSH_HOST" \
+          "printf 'SSH_CONNECTION_OK'" \
+          2>&1
+      )
+
+      EXIT_CODE=$?
+
+      if [ "$EXIT_CODE" -eq 0 ] && [ "$OUTPUT" = "SSH_CONNECTION_OK" ]; then
+
+        echo "SSH connection successful."
+
+        echo "result=success" >> "$GITHUB_OUTPUT"
+
+        exit 0
+
+      fi
+
+      echo "SSH connection failed."
+
+      echo "result=failure" >> "$GITHUB_OUTPUT"
+
+      echo "SSH command output:"
+      echo "$OUTPUT"
+
+      exit 1
+
+
+  # ========================================
+  # 8. Update Successful Result in D1
+  # ========================================
+
+  - name: Update successful result in D1
+    if: success()
+    env:
+      REQUEST_ID: ${{ inputs.request_id }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    run: |
+      set -e
+
+      python3 <<'PY'
+      import os
+      import subprocess
+
+      request_id = os.environ["REQUEST_ID"]
+
+      def sql_escape(value):
+          return value.replace("'", "''")
+
+      sql = f"""
+      UPDATE ssh_requests
+      SET
+        status = 'completed',
+        result = 'SSH connection successful',
+        error = NULL,
+        completed_at = CURRENT_TIMESTAMP
+      WHERE id = '{sql_escape(request_id)}'
+      """
+
+      subprocess.run(
+          [
+              "wrangler",
+              "d1",
+              "execute",
+              "DB",
+              "--remote",
+              "--command",
+              sql
+          ],
+          check=True
+      )
+
+      sql2 = f"""
+      UPDATE sites
+      SET
+        ssh_test_status = 'success',
+        ssh_test_message = 'تم الاتصال بالسيرفر عبر SSH بنجاح',
+        ssh_tested_at = CURRENT_TIMESTAMP
+      WHERE id = (
+        SELECT site_id
+        FROM ssh_requests
+        WHERE id = '{sql_escape(request_id)}'
+        LIMIT 1
+      )
+      """
+
+      subprocess.run(
+          [
+              "wrangler",
+              "d1",
+              "execute",
+              "DB",
+              "--remote",
+              "--command",
+              sql2
+          ],
+          check=True
+      )
+
+      print("Successful SSH result saved.")
+      PY
+
+
+  # ========================================
+  # 9. Update Failed Result in D1
+  # ========================================
+
+  - name: Update failed result in D1
+    if: failure()
+    env:
+      REQUEST_ID: ${{ inputs.request_id }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    run: |
+      set -e
+
+      python3 <<'PY'
+      import os
+      import subprocess
+
+      request_id = os.environ["REQUEST_ID"]
+
+      def sql_escape(value):
+          return value.replace("'", "''")
+
+      sql = f"""
+      UPDATE ssh_requests
+      SET
+        status = 'failed',
+        result = NULL,
+        error = 'SSH connection failed',
+        completed_at = CURRENT_TIMESTAMP
+      WHERE id = '{sql_escape(request_id)}'
+      """
+
+      subprocess.run(
+          [
+              "wrangler",
+              "d1",
+              "execute",
+              "DB",
+              "--remote",
+              "--command",
+              sql
+          ],
+          check=True
+      )
+
+      sql2 = f"""
+      UPDATE sites
+      SET
+        ssh_test_status = 'failed',
+        ssh_test_message = 'فشل الاتصال بالسيرفر عبر SSH',
+        ssh_tested_at = CURRENT_TIMESTAMP
+      WHERE id = (
+        SELECT site_id
+        FROM ssh_requests
+        WHERE id = '{sql_escape(request_id)}'
+        LIMIT 1
+      )
+      """
+
+      subprocess.run(
+          [
+              "wrangler",
+              "d1",
+              "execute",
+              "DB",
+              "--remote",
+              "--command",
+              sql2
+          ],
+          check=True
+      )
+
+      print("Failed SSH result saved.")
+      PY
