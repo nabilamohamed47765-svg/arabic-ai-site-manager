@@ -1,7 +1,5 @@
 function base64UrlDecode(value) {
-  value = value
-    .replace(/-/g, "+")
-    .replace(/_/g, "/");
+  value = value.replace(/-/g, "+").replace(/_/g, "/");
 
   while (value.length % 4) {
     value += "=";
@@ -17,9 +15,7 @@ function base64UrlDecode(value) {
   return bytes;
 }
 
-
 function base64Encode(bytes) {
-
   let binary = "";
 
   for (const byte of bytes) {
@@ -29,13 +25,10 @@ function base64Encode(bytes) {
   return btoa(binary);
 }
 
-
 function generateId() {
-
-  const bytes =
-    crypto.getRandomValues(
-      new Uint8Array(16)
-    );
+  const bytes = crypto.getRandomValues(
+    new Uint8Array(16)
+  );
 
   let binary = "";
 
@@ -54,78 +47,48 @@ function generateId() {
    JWT
 ======================================== */
 
-async function verifyJWT(
-  token,
-  secret
-) {
-
-  if (!token || !secret) {
-    return null;
-  }
-
-  const parts =
-    token.split(".");
+async function verifyJWT(token, secret) {
+  const parts = token.split(".");
 
   if (parts.length !== 3) {
     return null;
   }
 
-  const [
-    header,
-    payload,
-    signature
-  ] = parts;
+  const [header, payload, signature] = parts;
+
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    {
+      name: "HMAC",
+      hash: "SHA-256"
+    },
+    false,
+    ["verify"]
+  );
+
+  const valid = await crypto.subtle.verify(
+    "HMAC",
+    key,
+    base64UrlDecode(signature),
+    new TextEncoder().encode(
+      `${header}.${payload}`
+    )
+  );
+
+  if (!valid) {
+    return null;
+  }
 
   try {
-
-    const key =
-      await crypto.subtle.importKey(
-        "raw",
-        new TextEncoder().encode(
-          secret
-        ),
-        {
-          name: "HMAC",
-          hash: "SHA-256"
-        },
-        false,
-        ["verify"]
-      );
-
-
-    const valid =
-      await crypto.subtle.verify(
-        "HMAC",
-        key,
-        base64UrlDecode(
-          signature
-        ),
-        new TextEncoder().encode(
-          `${header}.${payload}`
-        )
-      );
-
-
-    if (!valid) {
-      return null;
-    }
-
-
-    const decoded =
-      JSON.parse(
-        new TextDecoder().decode(
-          base64UrlDecode(
-            payload
-          )
-        )
-      );
-
+    const decoded = JSON.parse(
+      new TextDecoder().decode(
+        base64UrlDecode(payload)
+      )
+    );
 
     const now =
-      Math.floor(
-        Date.now() / 1000
-      );
-
+      Math.floor(Date.now() / 1000);
 
     if (
       !decoded.exp ||
@@ -134,26 +97,19 @@ async function verifyJWT(
       return null;
     }
 
-
     return decoded;
 
   } catch {
-
     return null;
-
   }
 }
 
 
-async function getAuthenticatedUser(
-  context
-) {
-
+async function getAuthenticatedUser(context) {
   const authorization =
     context.request.headers.get(
       "Authorization"
     );
-
 
   if (
     !authorization ||
@@ -164,25 +120,18 @@ async function getAuthenticatedUser(
     return null;
   }
 
-
-  const token =
-    authorization.substring(7);
-
-
   return await verifyJWT(
-    token,
+    authorization.substring(7),
     context.env.JWT_SECRET
   );
 }
 
 
 /* ========================================
-   SSH ENCRYPTION KEY
+   DERIVE AES KEY
 ======================================== */
 
-async function deriveEncryptionKey(
-  secret
-) {
+async function deriveEncryptionKey(secret) {
 
   if (!secret) {
     throw new Error(
@@ -190,15 +139,19 @@ async function deriveEncryptionKey(
     );
   }
 
+  const secretBytes =
+    new TextEncoder().encode(secret);
+
+  /*
+   * نحول الـSecret الحالي إلى
+   * SHA-256 = 32 bytes = AES-256
+   */
 
   const hash =
     await crypto.subtle.digest(
       "SHA-256",
-      new TextEncoder().encode(
-        secret
-      )
+      secretBytes
     );
-
 
   return await crypto.subtle.importKey(
     "raw",
@@ -216,7 +169,7 @@ async function deriveEncryptionKey(
 
 
 /* ========================================
-   Encrypt SSH Password
+   ENCRYPT SSH PASSWORD
 ======================================== */
 
 async function encryptPassword(
@@ -229,12 +182,10 @@ async function encryptPassword(
       secret
     );
 
-
   const iv =
     crypto.getRandomValues(
       new Uint8Array(12)
     );
-
 
   const encrypted =
     await crypto.subtle.encrypt(
@@ -248,9 +199,7 @@ async function encryptPassword(
       )
     );
 
-
   return {
-
     ciphertext:
       base64Encode(
         new Uint8Array(
@@ -259,10 +208,7 @@ async function encryptPassword(
       ),
 
     iv:
-      base64Encode(
-        iv
-      )
-
+      base64Encode(iv)
   };
 }
 
@@ -282,19 +228,16 @@ export async function onRequestGet(
         context
       );
 
-
     if (!user) {
 
       return Response.json(
         {
-          error:
-            "غير مصرح"
+          error: "غير مصرح"
         },
         {
           status: 401
         }
       );
-
     }
 
 
@@ -325,13 +268,9 @@ export async function onRequestGet(
 
 
     return Response.json({
-
-      success:
-        true,
-
+      success: true,
       sites:
         result.results || []
-
     });
 
 
@@ -343,14 +282,12 @@ export async function onRequestGet(
           "حدث خطأ أثناء جلب المواقع",
 
         details:
-          error?.message ||
-          "Unknown error"
+          error.message
       },
       {
         status: 500
       }
     );
-
   }
 }
 
@@ -370,19 +307,16 @@ export async function onRequestPost(
         context
       );
 
-
     if (!user) {
 
       return Response.json(
         {
-          error:
-            "غير مصرح"
+          error: "غير مصرح"
         },
         {
           status: 401
         }
       );
-
     }
 
 
@@ -427,10 +361,6 @@ export async function onRequestPost(
       ).trim();
 
 
-    /* ========================================
-       Validate input
-    ======================================== */
-
     if (
       !name ||
       !hostname ||
@@ -447,7 +377,6 @@ export async function onRequestPost(
           status: 400
         }
       );
-
     }
 
 
@@ -466,13 +395,8 @@ export async function onRequestPost(
           status: 400
         }
       );
-
     }
 
-
-    /* ========================================
-       Encryption secret
-    ======================================== */
 
     const encryptionSecret =
       context.env.SSH_ENCRYPTION_KEY;
@@ -489,13 +413,8 @@ export async function onRequestPost(
           status: 500
         }
       );
-
     }
 
-
-    /* ========================================
-       Encrypt password
-    ======================================== */
 
     const encrypted =
       await encryptPassword(
@@ -504,17 +423,9 @@ export async function onRequestPost(
       );
 
 
-    /* ========================================
-       Generate site ID
-    ======================================== */
-
     const id =
       generateId();
 
-
-    /* ========================================
-       Insert site
-    ======================================== */
 
     await context.env.DB
       .prepare(`
@@ -531,19 +442,7 @@ export async function onRequestPost(
           ssh_password_iv,
           ssh_test_status
         )
-        VALUES (
-          ?,
-          ?,
-          ?,
-          ?,
-          ?,
-          ?,
-          ?,
-          ?,
-          ?,
-          ?,
-          ?
-        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
       .bind(
         id,
@@ -561,41 +460,26 @@ export async function onRequestPost(
       .run();
 
 
-    /* ========================================
-       Success
-    ======================================== */
-
     return Response.json(
       {
-        success:
-          true,
+        success: true,
 
         message:
           "تمت إضافة الموقع وحفظ بيانات SSH بشكل مشفر",
 
         site: {
-
           id,
-
           name,
-
           hostname,
-
           port,
-
           username,
-
           working_directory:
             workingDirectory,
-
           status:
             "active",
-
           ssh_test_status:
             "not_tested"
-
         }
-
       },
       {
         status: 201
@@ -605,35 +489,27 @@ export async function onRequestPost(
 
   } catch (error) {
 
-    console.error(
-      "Add site error:",
-      error
-    );
-
-
     return Response.json(
       {
         error:
           "حدث خطأ أثناء إضافة الموقع",
 
         details:
-          error?.message ||
-          "Unknown error"
+          error.message
       },
       {
         status: 500
       }
     );
-
   }
 }
 
 
 /* ========================================
-   DELETE /api/sites
+   POST /api/sites/ssh-test
 ======================================== */
 
-export async function onRequestDelete(
+export async function onRequestPostSSHTest(
   context
 ) {
 
@@ -644,19 +520,16 @@ export async function onRequestDelete(
         context
       );
 
-
     if (!user) {
 
       return Response.json(
         {
-          error:
-            "غير مصرح"
+          error: "غير مصرح"
         },
         {
           status: 401
         }
       );
-
     }
 
 
@@ -681,7 +554,180 @@ export async function onRequestDelete(
           status: 400
         }
       );
+    }
 
+
+    const siteResult =
+      await context.env.DB
+        .prepare(`
+          SELECT
+            id,
+            name,
+            hostname,
+            port,
+            username,
+            ssh_password_ciphertext,
+            ssh_password_iv
+          FROM sites
+          WHERE id = ?
+          AND user_id = ?
+          LIMIT 1
+        `)
+        .bind(
+          siteId,
+          user.sub
+        )
+        .first();
+
+
+    if (!siteResult) {
+
+      return Response.json(
+        {
+          error:
+            "الموقع غير موجود"
+        },
+        {
+          status: 404
+        }
+      );
+    }
+
+
+    const requestId =
+      generateId();
+
+
+    const expiresAt =
+      new Date(
+        Date.now() +
+        5 * 60 * 1000
+      ).toISOString();
+
+
+    await context.env.DB
+      .prepare(`
+        INSERT INTO ssh_requests (
+          id,
+          site_id,
+          user_id,
+          status,
+          created_at,
+          expires_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?)
+      `)
+      .bind(
+        requestId,
+        siteId,
+        user.sub,
+        "pending",
+        new Date().toISOString(),
+        expiresAt
+      )
+      .run();
+
+
+    await context.env.DB
+      .prepare(`
+        UPDATE sites
+        SET
+          ssh_test_status = ?,
+          ssh_test_message = ?,
+          ssh_tested_at = NULL
+        WHERE id = ?
+        AND user_id = ?
+      `)
+      .bind(
+        "testing",
+        "جاري اختبار اتصال SSH...",
+        siteId,
+        user.sub
+      )
+      .run();
+
+
+    return Response.json({
+      success: true,
+
+      request_id:
+        requestId,
+
+      status:
+        "pending",
+
+      message:
+        "تم إنشاء طلب اختبار SSH"
+    });
+
+
+  } catch (error) {
+
+    return Response.json(
+      {
+        error:
+          "حدث خطأ أثناء إنشاء اختبار SSH",
+
+        details:
+          error.message
+      },
+      {
+        status: 500
+      }
+    );
+  }
+}
+
+
+/* ========================================
+   DELETE /api/sites
+======================================== */
+
+export async function onRequestDelete(
+  context
+) {
+
+  try {
+
+    const user =
+      await getAuthenticatedUser(
+        context
+      );
+
+    if (!user) {
+
+      return Response.json(
+        {
+          error: "غير مصرح"
+        },
+        {
+          status: 401
+        }
+      );
+    }
+
+
+    const body =
+      await context.request.json();
+
+
+    const siteId =
+      String(
+        body.id || ""
+      ).trim();
+
+
+    if (!siteId) {
+
+      return Response.json(
+        {
+          error:
+            "معرف الموقع مطلوب"
+        },
+        {
+          status: 400
+        }
+      );
     }
 
 
@@ -713,18 +759,14 @@ export async function onRequestDelete(
           status: 404
         }
       );
-
     }
 
 
     return Response.json({
-
-      success:
-        true,
+      success: true,
 
       message:
         "تم حذف الموقع من النظام بنجاح"
-
     });
 
 
@@ -736,13 +778,11 @@ export async function onRequestDelete(
           "حدث خطأ أثناء حذف الموقع",
 
         details:
-          error?.message ||
-          "Unknown error"
+          error.message
       },
       {
         status: 500
       }
     );
-
   }
 }
