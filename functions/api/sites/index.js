@@ -25,78 +25,6 @@ function base64Encode(bytes) {
   return btoa(binary);
 }
 
-async function verifyJWT(token, secret) {
-  const parts = token.split(".");
-
-  if (parts.length !== 3) {
-    return null;
-  }
-
-  const [header, payload, signature] = parts;
-  const data = `${header}.${payload}`;
-
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(secret),
-    {
-      name: "HMAC",
-      hash: "SHA-256"
-    },
-    false,
-    ["verify"]
-  );
-
-  const valid = await crypto.subtle.verify(
-    "HMAC",
-    key,
-    base64UrlDecode(signature),
-    new TextEncoder().encode(data)
-  );
-
-  if (!valid) {
-    return null;
-  }
-
-  try {
-    const decoded = JSON.parse(
-      new TextDecoder().decode(
-        base64UrlDecode(payload)
-      )
-    );
-
-    const now = Math.floor(Date.now() / 1000);
-
-    if (!decoded.exp || decoded.exp < now) {
-      return null;
-    }
-
-    return decoded;
-
-  } catch {
-    return null;
-  }
-}
-
-async function getAuthenticatedUser(context) {
-  const authorization =
-    context.request.headers.get("Authorization");
-
-  if (
-    !authorization ||
-    !authorization.startsWith("Bearer ")
-  ) {
-    return null;
-  }
-
-  const token =
-    authorization.substring(7);
-
-  return await verifyJWT(
-    token,
-    context.env.JWT_SECRET
-  );
-}
-
 function generateId() {
   const bytes = crypto.getRandomValues(
     new Uint8Array(16)
@@ -114,9 +42,96 @@ function generateId() {
     .replace(/=+$/, "");
 }
 
+async function verifyJWT(token, secret) {
+  const parts = token.split(".");
+
+  if (parts.length !== 3) {
+    return null;
+  }
+
+  const [header, payload, signature] = parts;
+
+  const data =
+    `${header}.${payload}`;
+
+  const key =
+    await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(secret),
+      {
+        name: "HMAC",
+        hash: "SHA-256"
+      },
+      false,
+      ["verify"]
+    );
+
+  const valid =
+    await crypto.subtle.verify(
+      "HMAC",
+      key,
+      base64UrlDecode(signature),
+      new TextEncoder().encode(data)
+    );
+
+  if (!valid) {
+    return null;
+  }
+
+  try {
+    const decoded =
+      JSON.parse(
+        new TextDecoder().decode(
+          base64UrlDecode(payload)
+        )
+      );
+
+    const now =
+      Math.floor(
+        Date.now() / 1000
+      );
+
+    if (
+      !decoded.exp ||
+      decoded.exp < now
+    ) {
+      return null;
+    }
+
+    return decoded;
+
+  } catch {
+    return null;
+  }
+}
+
+async function getAuthenticatedUser(context) {
+  const authorization =
+    context.request.headers.get(
+      "Authorization"
+    );
+
+  if (
+    !authorization ||
+    !authorization.startsWith(
+      "Bearer "
+    )
+  ) {
+    return null;
+  }
+
+  const token =
+    authorization.substring(7);
+
+  return await verifyJWT(
+    token,
+    context.env.JWT_SECRET
+  );
+}
+
 
 /* ========================================
-   تشفير SSH Password
+   SSH Password Encryption
 ======================================== */
 
 async function encryptPassword(
@@ -125,7 +140,9 @@ async function encryptPassword(
 ) {
 
   const secretBytes =
-    new TextEncoder().encode(secret);
+    new TextEncoder().encode(
+      secret
+    );
 
   const key =
     await crypto.subtle.importKey(
@@ -150,13 +167,17 @@ async function encryptPassword(
         iv
       },
       key,
-      new TextEncoder().encode(password)
+      new TextEncoder().encode(
+        password
+      )
     );
 
   return {
     ciphertext:
       base64Encode(
-        new Uint8Array(encrypted)
+        new Uint8Array(
+          encrypted
+        )
       ),
 
     iv:
@@ -169,18 +190,23 @@ async function encryptPassword(
    GET /api/sites
 ======================================== */
 
-export async function onRequestGet(context) {
+export async function onRequestGet(
+  context
+) {
 
   try {
 
     const user =
-      await getAuthenticatedUser(context);
+      await getAuthenticatedUser(
+        context
+      );
 
     if (!user) {
 
       return Response.json(
         {
-          error: "غير مصرح"
+          error:
+            "غير مصرح"
         },
         {
           status: 401
@@ -199,6 +225,9 @@ export async function onRequestGet(context) {
             username,
             working_directory,
             status,
+            ssh_test_status,
+            ssh_test_message,
+            ssh_tested_at,
             created_at,
             updated_at
           FROM sites
@@ -210,7 +239,8 @@ export async function onRequestGet(context) {
 
     return Response.json({
       success: true,
-      sites: result.results || []
+      sites:
+        result.results || []
     });
 
   } catch (error) {
@@ -235,18 +265,23 @@ export async function onRequestGet(context) {
    POST /api/sites
 ======================================== */
 
-export async function onRequestPost(context) {
+export async function onRequestPost(
+  context
+) {
 
   try {
 
     const user =
-      await getAuthenticatedUser(context);
+      await getAuthenticatedUser(
+        context
+      );
 
     if (!user) {
 
       return Response.json(
         {
-          error: "غير مصرح"
+          error:
+            "غير مصرح"
         },
         {
           status: 401
@@ -284,7 +319,8 @@ export async function onRequestPost(context) {
 
     const workingDirectory =
       String(
-        body.working_directory || "/"
+        body.working_directory ||
+        "/"
       ).trim();
 
 
@@ -365,9 +401,10 @@ export async function onRequestPost(context) {
           working_directory,
           status,
           ssh_password_ciphertext,
-          ssh_password_iv
+          ssh_password_iv,
+          ssh_test_status
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
       .bind(
         id,
@@ -379,7 +416,8 @@ export async function onRequestPost(context) {
         workingDirectory,
         "active",
         encrypted.ciphertext,
-        encrypted.iv
+        encrypted.iv,
+        "not_tested"
       )
       .run();
 
@@ -400,7 +438,9 @@ export async function onRequestPost(context) {
           working_directory:
             workingDirectory,
           status:
-            "active"
+            "active",
+          ssh_test_status:
+            "not_tested"
         }
       },
       {
@@ -427,21 +467,202 @@ export async function onRequestPost(context) {
 
 
 /* ========================================
-   DELETE /api/sites
+   POST /api/sites/ssh-test
 ======================================== */
 
-export async function onRequestDelete(context) {
+export async function onRequestPostSSHTest(
+  context
+) {
 
   try {
 
     const user =
-      await getAuthenticatedUser(context);
+      await getAuthenticatedUser(
+        context
+      );
 
     if (!user) {
 
       return Response.json(
         {
-          error: "غير مصرح"
+          error:
+            "غير مصرح"
+        },
+        {
+          status: 401
+        }
+      );
+    }
+
+    const body =
+      await context.request.json();
+
+    const siteId =
+      String(
+        body.id || ""
+      ).trim();
+
+    if (!siteId) {
+
+      return Response.json(
+        {
+          error:
+            "معرف الموقع مطلوب"
+        },
+        {
+          status: 400
+        }
+      );
+    }
+
+
+    const siteResult =
+      await context.env.DB
+        .prepare(`
+          SELECT
+            id,
+            name,
+            hostname,
+            port,
+            username,
+            ssh_password_ciphertext,
+            ssh_password_iv
+          FROM sites
+          WHERE id = ?
+          AND user_id = ?
+          LIMIT 1
+        `)
+        .bind(
+          siteId,
+          user.sub
+        )
+        .first();
+
+
+    if (!siteResult) {
+
+      return Response.json(
+        {
+          error:
+            "الموقع غير موجود"
+        },
+        {
+          status: 404
+        }
+      );
+    }
+
+
+    const requestId =
+      generateId();
+
+    const expiresAt =
+      new Date(
+        Date.now() + 5 * 60 * 1000
+      ).toISOString();
+
+
+    await context.env.DB
+      .prepare(`
+        INSERT INTO ssh_requests (
+          id,
+          site_id,
+          user_id,
+          status,
+          created_at,
+          expires_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?)
+      `)
+      .bind(
+        requestId,
+        siteId,
+        user.sub,
+        "pending",
+        new Date().toISOString(),
+        expiresAt
+      )
+      .run();
+
+
+    await context.env.DB
+      .prepare(`
+        UPDATE sites
+        SET
+          ssh_test_status = ?,
+          ssh_test_message = ?,
+          ssh_tested_at = NULL
+        WHERE id = ?
+        AND user_id = ?
+      `)
+      .bind(
+        "testing",
+        "جاري اختبار اتصال SSH...",
+        siteId,
+        user.sub
+      )
+      .run();
+
+
+    /*
+     * في هذه المرحلة ننشئ الطلب فقط.
+     *
+     * تشغيل GitHub Action وربطه بهذا request
+     * سيكون في الخطوة التالية.
+     */
+
+    return Response.json({
+      success: true,
+
+      request_id:
+        requestId,
+
+      status:
+        "pending",
+
+      message:
+        "تم إنشاء طلب اختبار SSH"
+    });
+
+  } catch (error) {
+
+    return Response.json(
+      {
+        error:
+          "حدث خطأ أثناء إنشاء اختبار SSH",
+
+        details:
+          error.message
+      },
+      {
+        status: 500
+      }
+    );
+  }
+}
+
+
+/* ========================================
+   DELETE /api/sites
+======================================== */
+
+export async function onRequestDelete(
+  context
+) {
+
+  try {
+
+    const user =
+      await getAuthenticatedUser(
+        context
+      );
+
+    if (!user) {
+
+      return Response.json(
+        {
+          error:
+            "غير مصرح"
         },
         {
           status: 401
