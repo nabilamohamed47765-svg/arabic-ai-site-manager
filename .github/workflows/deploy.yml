@@ -13,6 +13,7 @@ jobs:
 
     permissions:
       contents: read
+      deployments: write
 
     steps:
       - name: Checkout repository
@@ -32,6 +33,8 @@ jobs:
           mkdir -p dist
           cp -r frontend/. dist/
           cp -r functions dist/
+        env:
+          CI: true
 
       - name: Create Cloudflare Pages project if needed
         run: |
