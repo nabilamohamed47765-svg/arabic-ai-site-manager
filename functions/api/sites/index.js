@@ -15,6 +15,16 @@ function base64UrlDecode(value) {
   return bytes;
 }
 
+function base64Encode(bytes) {
+  let binary = "";
+
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+
+  return btoa(binary);
+}
+
 async function verifyJWT(token, secret) {
   const parts = token.split(".");
 
@@ -62,6 +72,7 @@ async function verifyJWT(token, secret) {
     }
 
     return decoded;
+
   } catch {
     return null;
   }
@@ -78,7 +89,8 @@ async function getAuthenticatedUser(context) {
     return null;
   }
 
-  const token = authorization.substring(7);
+  const token =
+    authorization.substring(7);
 
   return await verifyJWT(
     token,
@@ -104,19 +116,80 @@ function generateId() {
 }
 
 
-/* ================================
-   GET /api/sites
-================================ */
+/*
+========================================
+  تشفير كلمة مرور SSH
+========================================
+*/
+
+async function encryptPassword(
+  password,
+  secret
+) {
+
+  const secretBytes =
+    new TextEncoder().encode(secret);
+
+  const key =
+    await crypto.subtle.importKey(
+      "raw",
+      secretBytes,
+      {
+        name: "AES-GCM"
+      },
+      false,
+      ["encrypt"]
+    );
+
+  const iv =
+    crypto.getRandomValues(
+      new Uint8Array(12)
+    );
+
+  const encrypted =
+    await crypto.subtle.encrypt(
+      {
+        name: "AES-GCM",
+        iv
+      },
+      key,
+      new TextEncoder().encode(password)
+    );
+
+  return {
+    ciphertext:
+      base64Encode(
+        new Uint8Array(encrypted)
+      ),
+
+    iv:
+      base64Encode(iv)
+  };
+}
+
+
+/*
+========================================
+  GET /api/sites
+========================================
+*/
 
 export async function onRequestGet(context) {
+
   try {
+
     const user =
       await getAuthenticatedUser(context);
 
     if (!user) {
+
       return Response.json(
-        { error: "غير مصرح" },
-        { status: 401 }
+        {
+          error: "غير مصرح"
+        },
+        {
+          status: 401
+        }
       );
     }
 
@@ -140,36 +213,55 @@ export async function onRequestGet(context) {
         .bind(user.sub)
         .all();
 
+    /*
+      لا نرجع Password أبدًا
+    */
+
     return Response.json({
       success: true,
       sites: result.results || []
     });
 
   } catch (error) {
+
     return Response.json(
       {
-        error: "حدث خطأ أثناء جلب المواقع",
-        details: error.message
+        error:
+          "حدث خطأ أثناء جلب المواقع",
+
+        details:
+          error.message
       },
-      { status: 500 }
+      {
+        status: 500
+      }
     );
   }
 }
 
 
-/* ================================
-   POST /api/sites
-================================ */
+/*
+========================================
+  POST /api/sites
+========================================
+*/
 
 export async function onRequestPost(context) {
+
   try {
+
     const user =
       await getAuthenticatedUser(context);
 
     if (!user) {
+
       return Response.json(
-        { error: "غير مصرح" },
-        { status: 401 }
+        {
+          error: "غير مصرح"
+        },
+        {
+          status: 401
+        }
       );
     }
 
@@ -177,46 +269,116 @@ export async function onRequestPost(context) {
       await context.request.json();
 
     const name =
-      String(body.name || "").trim();
+      String(
+        body.name || ""
+      ).trim();
 
     const hostname =
-      String(body.hostname || "").trim();
+      String(
+        body.hostname || ""
+      ).trim();
 
     const port =
-      Number(body.port || 22);
+      Number(
+        body.port || 22
+      );
 
     const username =
-      String(body.username || "").trim();
+      String(
+        body.username || ""
+      ).trim();
+
+    const password =
+      String(
+        body.ssh_password || ""
+      );
 
     const workingDirectory =
       String(
         body.working_directory || "/"
       ).trim();
 
-    if (!name || !hostname || !username) {
+
+    /*
+      التحقق
+    */
+
+    if (
+      !name ||
+      !hostname ||
+      !username ||
+      !password
+    ) {
+
       return Response.json(
         {
           error:
-            "اسم الموقع وHostname واسم المستخدم مطلوبة"
+            "اسم الموقع وHostname وUsername وSSH Password مطلوبة"
         },
-        { status: 400 }
+        {
+          status: 400
+        }
       );
     }
+
 
     if (
       !Number.isInteger(port) ||
       port < 1 ||
       port > 65535
     ) {
+
       return Response.json(
         {
-          error: "رقم SSH Port غير صالح"
+          error:
+            "رقم SSH Port غير صالح"
         },
-        { status: 400 }
+        {
+          status: 400
+        }
       );
     }
 
-    const id = generateId();
+
+    /*
+      مفتاح التشفير
+    */
+
+    const encryptionSecret =
+      context.env.SSH_ENCRYPTION_KEY;
+
+    if (!encryptionSecret) {
+
+      return Response.json(
+        {
+          error:
+            "SSH_ENCRYPTION_KEY غير مضبوط في Cloudflare"
+        },
+        {
+          status: 500
+        }
+      );
+    }
+
+
+    /*
+      تشفير Password
+    */
+
+    const encrypted =
+      await encryptPassword(
+        password,
+        encryptionSecret
+      );
+
+
+    const id =
+      generateId();
+
+
+    /*
+      تخزين الموقع
+    */
 
     await context.env.DB
       .prepare(`
@@ -228,9 +390,11 @@ export async function onRequestPost(context) {
           port,
           username,
           working_directory,
-          status
+          status,
+          ssh_password_ciphertext,
+          ssh_password_iv
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
       .bind(
         id,
@@ -240,34 +404,50 @@ export async function onRequestPost(context) {
         port,
         username,
         workingDirectory,
-        "active"
+        "active",
+        encrypted.ciphertext,
+        encrypted.iv
       )
       .run();
+
 
     return Response.json(
       {
         success: true,
-        message: "تمت إضافة الموقع بنجاح",
+
+        message:
+          "تمت إضافة الموقع وحفظ بيانات SSH بشكل مشفر",
+
         site: {
           id,
           name,
           hostname,
           port,
           username,
-          working_directory: workingDirectory,
-          status: "active"
+          working_directory:
+            workingDirectory,
+          status:
+            "active"
         }
       },
-      { status: 201 }
+      {
+        status: 201
+      }
     );
 
   } catch (error) {
+
     return Response.json(
       {
-        error: "حدث خطأ أثناء إضافة الموقع",
-        details: error.message
+        error:
+          "حدث خطأ أثناء إضافة الموقع",
+
+        details:
+          error.message
       },
-      { status: 500 }
+      {
+        status: 500
+      }
     );
   }
 }
