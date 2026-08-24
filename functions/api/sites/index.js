@@ -1,14 +1,11 @@
 function base64UrlDecode(value) {
-  value = value
-    .replace(/-/g, "+")
-    .replace(/_/g, "/");
+  value = value.replace(/-/g, "+").replace(/_/g, "/");
 
   while (value.length % 4) {
     value += "=";
   }
 
   const binary = atob(value);
-
   const bytes = new Uint8Array(binary.length);
 
   for (let i = 0; i < binary.length; i++) {
@@ -27,62 +24,52 @@ async function verifyJWT(token, secret) {
 
   const [header, payload, signature] = parts;
 
-  const data =
-    `${header}.${payload}`;
+  const data = `${header}.${payload}`;
 
-  const key =
-    await crypto.subtle.importKey(
-      "raw",
-      new TextEncoder().encode(secret),
-      {
-        name: "HMAC",
-        hash: "SHA-256"
-      },
-      false,
-      ["verify"]
-    );
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    {
+      name: "HMAC",
+      hash: "SHA-256"
+    },
+    false,
+    ["verify"]
+  );
 
-  const valid =
-    await crypto.subtle.verify(
-      "HMAC",
-      key,
-      base64UrlDecode(signature),
-      new TextEncoder().encode(data)
-    );
+  const valid = await crypto.subtle.verify(
+    "HMAC",
+    key,
+    base64UrlDecode(signature),
+    new TextEncoder().encode(data)
+  );
 
   if (!valid) {
     return null;
   }
 
   try {
+    const decoded = JSON.parse(
+      new TextDecoder().decode(
+        base64UrlDecode(payload)
+      )
+    );
 
-    const decoded =
-      JSON.parse(
-        new TextDecoder().decode(
-          base64UrlDecode(payload)
-        )
-      );
-
-    const now =
-      Math.floor(Date.now() / 1000);
+    const now = Math.floor(Date.now() / 1000);
 
     if (!decoded.exp || decoded.exp < now) {
       return null;
     }
 
     return decoded;
-
   } catch {
     return null;
   }
 }
 
 async function getAuthenticatedUser(context) {
-
   const authorization =
-    context.request.headers.get(
-      "Authorization"
-    );
+    context.request.headers.get("Authorization");
 
   if (
     !authorization ||
@@ -91,8 +78,7 @@ async function getAuthenticatedUser(context) {
     return null;
   }
 
-  const token =
-    authorization.substring(7);
+  const token = authorization.substring(7);
 
   return await verifyJWT(
     token,
@@ -101,11 +87,9 @@ async function getAuthenticatedUser(context) {
 }
 
 function generateId() {
-
-  const bytes =
-    crypto.getRandomValues(
-      new Uint8Array(16)
-    );
+  const bytes = crypto.getRandomValues(
+    new Uint8Array(16)
+  );
 
   let binary = "";
 
@@ -120,26 +104,19 @@ function generateId() {
 }
 
 
-/* =========================================
+/* ================================
    GET /api/sites
-========================================= */
+================================ */
 
 export async function onRequestGet(context) {
-
   try {
-
     const user =
       await getAuthenticatedUser(context);
 
     if (!user) {
-
       return Response.json(
-        {
-          error: "غير مصرح"
-        },
-        {
-          status: 401
-        }
+        { error: "غير مصرح" },
+        { status: 401 }
       );
     }
 
@@ -149,9 +126,13 @@ export async function onRequestGet(context) {
           SELECT
             id,
             name,
-            url,
+            hostname,
+            port,
+            username,
+            working_directory,
             status,
-            created_at
+            created_at,
+            updated_at
           FROM sites
           WHERE user_id = ?
           ORDER BY created_at DESC
@@ -165,40 +146,30 @@ export async function onRequestGet(context) {
     });
 
   } catch (error) {
-
     return Response.json(
       {
         error: "حدث خطأ أثناء جلب المواقع",
         details: error.message
       },
-      {
-        status: 500
-      }
+      { status: 500 }
     );
   }
 }
 
 
-/* =========================================
+/* ================================
    POST /api/sites
-========================================= */
+================================ */
 
 export async function onRequestPost(context) {
-
   try {
-
     const user =
       await getAuthenticatedUser(context);
 
     if (!user) {
-
       return Response.json(
-        {
-          error: "غير مصرح"
-        },
-        {
-          status: 401
-        }
+        { error: "غير مصرح" },
+        { status: 401 }
       );
     }
 
@@ -208,41 +179,44 @@ export async function onRequestPost(context) {
     const name =
       String(body.name || "").trim();
 
-    const url =
-      String(body.url || "").trim();
+    const hostname =
+      String(body.hostname || "").trim();
 
-    if (!name || !url) {
+    const port =
+      Number(body.port || 22);
 
+    const username =
+      String(body.username || "").trim();
+
+    const workingDirectory =
+      String(
+        body.working_directory || "/"
+      ).trim();
+
+    if (!name || !hostname || !username) {
       return Response.json(
         {
           error:
-            "اسم الموقع والرابط مطلوبان"
+            "اسم الموقع وHostname واسم المستخدم مطلوبة"
         },
-        {
-          status: 400
-        }
+        { status: 400 }
       );
     }
 
-    try {
-
-      new URL(url);
-
-    } catch {
-
+    if (
+      !Number.isInteger(port) ||
+      port < 1 ||
+      port > 65535
+    ) {
       return Response.json(
         {
-          error:
-            "رابط الموقع غير صالح"
+          error: "رقم SSH Port غير صالح"
         },
-        {
-          status: 400
-        }
+        { status: 400 }
       );
     }
 
-    const id =
-      generateId();
+    const id = generateId();
 
     await context.env.DB
       .prepare(`
@@ -250,16 +224,22 @@ export async function onRequestPost(context) {
           id,
           user_id,
           name,
-          url,
+          hostname,
+          port,
+          username,
+          working_directory,
           status
         )
-        VALUES (?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `)
       .bind(
         id,
         user.sub,
         name,
-        url,
+        hostname,
+        port,
+        username,
+        workingDirectory,
         "active"
       )
       .run();
@@ -267,32 +247,27 @@ export async function onRequestPost(context) {
     return Response.json(
       {
         success: true,
-        message:
-          "تمت إضافة الموقع بنجاح",
+        message: "تمت إضافة الموقع بنجاح",
         site: {
           id,
           name,
-          url,
+          hostname,
+          port,
+          username,
+          working_directory: workingDirectory,
           status: "active"
         }
       },
-      {
-        status: 201
-      }
+      { status: 201 }
     );
 
   } catch (error) {
-
     return Response.json(
       {
-        error:
-          "حدث خطأ أثناء إضافة الموقع",
-        details:
-          error.message
+        error: "حدث خطأ أثناء إضافة الموقع",
+        details: error.message
       },
-      {
-        status: 500
-      }
+      { status: 500 }
     );
   }
 }
