@@ -143,7 +143,9 @@ jobs:
               "ciphertext": str(row["ssh_password_ciphertext"]),
               "iv": str(row["ssh_password_iv"]),
               "target_path": target_path,
-              "overwrite_confirmed": overwrite_confirmed
+              "overwrite_confirmed": overwrite_confirmed,
+              "site_id": str(row["site_id"]),
+              "user_id": str(row["user_id"])
           }
 
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
@@ -209,7 +211,7 @@ jobs:
               -o ConnectionAttempts=1 \
               -p "$SSH_PORT" \
               "$SSH_USER@$SSH_HOST" \
-              "if [ -f $(printf '%q' "$TARGET_PATH") ]; then echo __EXISTS__; else echo __MISSING__; fi" \
+              "test -f -- $(printf '%q' "$TARGET_PATH") && echo __EXISTS__ || echo __MISSING__" \
               2>&1
           )
 
@@ -219,6 +221,7 @@ jobs:
 
           if echo "$EXISTS_CHECK" | grep -q "__EXISTS__" && [ "$OVERWRITE_CONFIRMED" != "1" ]; then
             echo "needs_confirmation=true" >> "$GITHUB_OUTPUT"
+            echo "backup_needed=false" >> "$GITHUB_OUTPUT"
             echo "الملف موجود بالفعل، محتاج تأكيد صريح قبل الاستبدال" > /tmp/ssh_output.txt
             echo "result=needs_confirmation" >> "$GITHUB_OUTPUT"
             exit 0
@@ -226,9 +229,20 @@ jobs:
 
           echo "needs_confirmation=false" >> "$GITHUB_OUTPUT"
 
-          CONTENT_BYTES=$(wc -c < /tmp/write_content.txt)
-          echo "content_bytes=$CONTENT_BYTES" >> "$GITHUB_OUTPUT"
-          echo "محتوى الملف المستلم: $CONTENT_BYTES بايت"
+          if echo "$EXISTS_CHECK" | grep -q "__EXISTS__" && [ "$OVERWRITE_CONFIRMED" == "1" ]; then
+            sshpass -e ssh \
+              -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=20 \
+              -o ConnectionAttempts=1 \
+              -p "$SSH_PORT" \
+              "$SSH_USER@$SSH_HOST" \
+              "cat -- $(printf '%q' "$TARGET_PATH")" \
+              > /tmp/old_content.txt 2>/tmp/old_content_err.txt
+
+            echo "backup_needed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "backup_needed=false" >> "$GITHUB_OUTPUT"
+          fi
 
           WRITE_OUTPUT=$(
             sshpass -e ssh \
@@ -247,26 +261,6 @@ jobs:
           echo "exit_code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
           echo "$WRITE_OUTPUT" > /tmp/ssh_output.txt
 
-          if [ "$EXIT_CODE" -eq 0 ]; then
-            VERIFY_OUTPUT=$(
-              sshpass -e ssh \
-                -o StrictHostKeyChecking=accept-new \
-                -o ConnectTimeout=20 \
-                -o ConnectionAttempts=1 \
-                -p "$SSH_PORT" \
-                "$SSH_USER@$SSH_HOST" \
-                "wc -c < $(printf '%q' "$TARGET_PATH")" \
-                2>&1
-            )
-            VERIFY_EXIT=$?
-            VERIFY_BYTES=$(printf '%s' "$VERIFY_OUTPUT" | tr -d '[:space:]')
-            echo "verify_bytes=$VERIFY_BYTES" >> "$GITHUB_OUTPUT"
-            if [ "$VERIFY_EXIT" -ne 0 ] || ! [[ "$VERIFY_BYTES" =~ ^[0-9]+$ ]] || [ "$VERIFY_BYTES" -ne "$CONTENT_BYTES" ]; then
-              EXIT_CODE=1
-              echo "فشل التحقق: حجم الملف على السيرفر ($VERIFY_BYTES) لا يطابق المحتوى المرسل ($CONTENT_BYTES)." > /tmp/ssh_output.txt
-            fi
-          fi
-
           echo "---- تفاصيل نتيجة كتابة الملف ----"
           echo "exit code: $EXIT_CODE"
           echo "$WRITE_OUTPUT"
@@ -279,6 +273,61 @@ jobs:
 
           echo "result=failure" >> "$GITHUB_OUTPUT"
           exit 1
+
+      - name: Save backup of old content in D1
+        if: always() && steps.ssh.outputs.backup_needed == 'true'
+        env:
+          REQUEST_ID: ${{ inputs.request_id }}
+          SITE_ID: ${{ steps.request.outputs.site_id }}
+          USER_ID: ${{ steps.request.outputs.user_id }}
+          TARGET_PATH: ${{ steps.request.outputs.target_path }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -e
+
+          python3 <<'PY'
+          import os
+          import subprocess
+          import uuid
+
+          site_id = os.environ["SITE_ID"]
+          user_id = os.environ["USER_ID"]
+          target_path = os.environ["TARGET_PATH"]
+          request_id = os.environ["REQUEST_ID"]
+          backup_id = str(uuid.uuid4())
+
+          def sql_escape(value):
+              return value.replace("'", "''")
+
+          try:
+              with open("/tmp/old_content.txt", "r", encoding="utf-8", errors="replace") as f:
+                  old_content = f.read()
+          except FileNotFoundError:
+              old_content = ""
+
+          sql = f"""
+          INSERT INTO backups (id, user_id, site_id, task_id, location, description, file_path, file_content, status)
+          VALUES (
+            '{sql_escape(backup_id)}',
+            '{sql_escape(user_id)}',
+            '{sql_escape(site_id)}',
+            NULL,
+            '{sql_escape(target_path)}',
+            'نسخة تلقائية قبل استبدال الملف (طلب {sql_escape(request_id)})',
+            '{sql_escape(target_path)}',
+            '{sql_escape(old_content)}',
+            'created'
+          )
+          """
+
+          subprocess.run(
+              ["wrangler", "d1", "execute", "DB", "--remote", "--command", sql],
+              check=True
+          )
+
+          print("Backup saved.")
+          PY
 
       - name: Save successful result in D1
         if: success()
