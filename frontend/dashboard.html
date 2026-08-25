@@ -979,7 +979,8 @@ async function runAiDiagnosis(hostname) {
     const response = await fetch("/api/ai-diagnose", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ hostname })
+      body: JSON.stringify({ hostname }),
+      signal: AbortSignal.timeout(35000)
     });
 
     const data = await response.json();
@@ -1000,7 +1001,7 @@ async function runAiDiagnosis(hostname) {
       ${steps ? `<div class="badge">📋 خطوات مقترحة:<ul>${steps}</ul></div>` : ""}
     `;
   } catch (error) {
-    box.innerHTML = "❌ تعذر إجراء التشخيص";
+    box.innerHTML = "❌ انتهت مهلة الانتظار أو تعذر إجراء التشخيص، حاول مرة أخرى";
   }
 }
 
