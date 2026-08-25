@@ -248,6 +248,7 @@ export async function onRequestGet(
             id,
             name,
             hostname,
+            public_url,
             port,
             username,
             working_directory,
@@ -333,6 +334,12 @@ export async function onRequestPost(
     const hostname =
       String(
         body.hostname || ""
+      ).trim();
+
+
+    const publicUrl =
+      String(
+        body.public_url || ""
       ).trim();
 
 
@@ -434,6 +441,7 @@ export async function onRequestPost(
           user_id,
           name,
           hostname,
+          public_url,
           port,
           username,
           working_directory,
@@ -442,13 +450,14 @@ export async function onRequestPost(
           ssh_password_iv,
           ssh_test_status
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
       .bind(
         id,
         user.sub,
         name,
         hostname,
+        publicUrl || null,
         port,
         username,
         workingDirectory,
@@ -471,6 +480,7 @@ export async function onRequestPost(
           id,
           name,
           hostname,
+          public_url: publicUrl || null,
           port,
           username,
           working_directory:
