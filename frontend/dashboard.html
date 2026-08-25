@@ -2458,8 +2458,8 @@ async function sendChatMessage() {
       return;
     }
 
-    if (data.action === "diagnose" && data.site) {
-      pendingChatPlan = { action: "diagnose", hostname: data.site.hostname };
+    if ((data.action === "diagnose" || data.action === "list_files") && data.site) {
+      pendingChatPlan = { action: data.action, hostname: data.site.hostname, siteId: data.site.id };
       thinkingBubble.textContent = data.explanation;
 
       const confirmWrap = document.createElement("div");
@@ -2526,6 +2526,109 @@ async function executeChatPlan(confirmWrap) {
     } catch {
       resultBubble.textContent = "❌ انتهت مهلة الانتظار أو تعذر التنفيذ، حاول تاني";
     }
+  } else if (plan.action === "list_files") {
+    await chatListFiles(plan.siteId, resultBubble);
+  }
+}
+
+
+async function chatListFiles(siteId, resultBubble) {
+  const token = getToken();
+
+  if (!token) {
+    window.location.href = "/test-auth.html";
+    return;
+  }
+
+  resultBubble.textContent = "⏳ جاري قراءة الملفات من السيرفر...";
+
+  try {
+    const createResponse = await fetch("/api/sites/read", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify({ id: siteId })
+    });
+
+    const createData = await createResponse.json();
+
+    if (!createResponse.ok) {
+      resultBubble.textContent = "❌ " + (createData.error || "فشل إنشاء طلب القراءة");
+      return;
+    }
+
+    const requestId = createData.request_id;
+
+    const startResponse = await fetch("/api/sites/read/start", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify({ request_id: requestId })
+    });
+
+    const startData = await startResponse.json();
+
+    if (!startResponse.ok) {
+      resultBubble.textContent = "❌ " + (startData.error || "فشل تشغيل القراءة");
+      return;
+    }
+
+    resultBubble.textContent = "⏳ تم التشغيل، جاري انتظار النتيجة...";
+
+    setTimeout(() => {
+      pollChatReadResult(requestId, token, resultBubble, 0);
+    }, 8000);
+
+  } catch {
+    resultBubble.textContent = "❌ Network error: تعذر تشغيل قراءة الملفات";
+  }
+}
+
+
+async function pollChatReadResult(requestId, token, resultBubble, attempt) {
+  const maxAttempts = 14;
+
+  try {
+    const resultResponse = await fetch(
+      `/api/sites/read/result?id=${requestId}`,
+      { headers: { "Authorization": `Bearer ${token}` } }
+    );
+
+    const resultData = await resultResponse.json();
+
+    if (!resultResponse.ok || !resultData.success) {
+      resultBubble.textContent = "❌ " + (resultData.error || "تعذر جلب النتيجة");
+      return;
+    }
+
+    if (resultData.status === "completed") {
+      resultBubble.textContent =
+        "📂 " + (resultData.target_path || "") + "\n\n" + (resultData.output || "(فارغ)");
+      return;
+    }
+
+    if (resultData.status === "failed") {
+      resultBubble.textContent = "❌ " + (resultData.error || "فشلت القراءة");
+      return;
+    }
+
+    if (attempt >= maxAttempts) {
+      resultBubble.textContent = "⏳ العملية طوّلت أكتر من المتوقع. جرب تاني بعد شوية.";
+      return;
+    }
+
+    resultBubble.textContent = "⏳ لسه بيجهز النتيجة... جاري المحاولة تاني.";
+
+    setTimeout(() => {
+      pollChatReadResult(requestId, token, resultBubble, attempt + 1);
+    }, 5000);
+
+  } catch {
+    resultBubble.textContent = "❌ Network error أثناء جلب النتيجة";
   }
 }
 
