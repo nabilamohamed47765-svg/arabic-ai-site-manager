@@ -45,20 +45,38 @@ ${JSON.stringify(healthData, null, 2)}
   "suggested_steps": ["خطوة 1", "خطوة 2"]
 }`;
 
-    const aiResponse = await fetch(
-      "https://openrouter.ai/api/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: "openrouter/free",
-          messages: [{ role: "user", content: prompt }]
-        })
+    async function callAi(useJsonFormat) {
+      return fetch(
+        "https://openrouter.ai/api/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${apiKey}`
+          },
+          signal: AbortSignal.timeout(25000),
+          body: JSON.stringify({
+            model: "openrouter/free",
+            ...(useJsonFormat ? { response_format: { type: "json_object" } } : {}),
+            messages: [{ role: "user", content: prompt }]
+          })
+        }
+      );
+    }
+
+    let aiResponse;
+    try {
+      aiResponse = await callAi(true);
+
+      if (!aiResponse.ok) {
+        aiResponse = await callAi(false);
       }
-    );
+    } catch (timeoutError) {
+      return Response.json(
+        { success: false, error: "انتهت مهلة الاتصال بخدمة الذكاء الاصطناعي، حاول مرة أخرى" },
+        { status: 504 }
+      );
+    }
 
     if (!aiResponse.ok) {
       const errText = await aiResponse.text();
