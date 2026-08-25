@@ -193,8 +193,12 @@ export async function onRequestPost(context) {
 
     const listFilesKeywords = /ملف|الملفات|مجلد|فولدر|directory|files/;
     const diagnoseKeywords = /مشكل|بطء|بطيء|عطل|افحص|فحص|شخص|شغال|down|error|خطأ/;
+    const writeKeywords = /اكتب|إكتب|أكتب|انشئ|أنشئ|اضف|أضف|عدل|عدّل|احفظ|أحفظ/;
 
-    if (defaultSite) {
+    // لو الرسالة فيها نية كتابة/إنشاء واضحة، نتجاوز الراوتر السريع
+    // بالكامل ونسيب الأمر للذكاء الاصطناعي (action = write_file)،
+    // عشان كلمة "ملف" وحدها متخطفش الطلب لـ list_files غلط.
+    if (defaultSite && !writeKeywords.test(lowerMessage)) {
       if (listFilesKeywords.test(lowerMessage)) {
         return Response.json({
           success: true,
