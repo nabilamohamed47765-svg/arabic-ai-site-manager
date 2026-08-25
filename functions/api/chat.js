@@ -182,6 +182,38 @@ export async function onRequestPost(context) {
       });
     }
 
+    // اختيار الموقع الافتراضي: لو عنده موقع واحد بس، بنستخدمه دايمًا
+    // من غير ما نعتمد على الموديل يكتب اسمه صح.
+    const defaultSite = sites.length === 1 ? sites[0] : null;
+
+    // راوتر سريع بكلمات مفتاحية (قبل اللجوء للـ AI): بيغطي أكتر
+    // الصيغ الشائعة، وبيتجنب مشاكل الموديل المجاني الضعيف (فهم
+    // خاطئ، رد بطيء، أو timeout) في الحالات الواضحة.
+    const lowerMessage = message.toLowerCase();
+
+    const listFilesKeywords = /ملف|الملفات|مجلد|فولدر|directory|files/;
+    const diagnoseKeywords = /مشكل|بطء|بطيء|عطل|افحص|فحص|شخص|شغال|down|error|خطأ/;
+
+    if (defaultSite) {
+      if (listFilesKeywords.test(lowerMessage)) {
+        return Response.json({
+          success: true,
+          action: "list_files",
+          site: { id: defaultSite.id, name: defaultSite.name, hostname: defaultSite.check_url },
+          explanation: `هعرضلك قائمة الملفات والمجلدات الموجودة فعليًا على السيرفر لموقعك (${defaultSite.name}) دلوقتي.`
+        });
+      }
+
+      if (diagnoseKeywords.test(lowerMessage)) {
+        return Response.json({
+          success: true,
+          action: "diagnose",
+          site: { id: defaultSite.id, name: defaultSite.name, hostname: defaultSite.check_url },
+          explanation: `هعمل تشخيص فني شامل لموقعك (${defaultSite.check_url}) دلوقتي عشان أكتشف أي مشكلة أو خلل.`
+        });
+      }
+    }
+
     // إعدادات AI الخاصة بالمستخدم (نفس أسلوب ai-diagnose.js)
     let model = "openrouter/free";
     let apiKey = context.env.OPENROUTER_API_KEY;
@@ -307,8 +339,20 @@ ${sitesListText}
     let action = ALLOWED_ACTIONS.includes(plan?.action) ? plan.action : "unknown";
     let matchedSite = null;
 
-    if ((action === "diagnose" || action === "list_files") && plan?.site_name) {
-      matchedSite = sites.find((s) => s.name === plan.site_name) || null;
+    if (action === "diagnose" || action === "list_files") {
+      if (sites.length === 1) {
+        // عنده موقع واحد بس - مفيش داعي نعتمد على الموديل يكتب الاسم بالظبط
+        matchedSite = sites[0];
+      } else {
+        const requestedName = String(plan?.site_name || "").trim().toLowerCase();
+
+        matchedSite = sites.find((s) => s.name.trim().toLowerCase() === requestedName)
+          || sites.find((s) => requestedName && (
+            requestedName.includes(s.name.trim().toLowerCase())
+            || s.name.trim().toLowerCase().includes(requestedName)
+          ))
+          || null;
+      }
 
       if (!matchedSite) {
         action = "unknown";
