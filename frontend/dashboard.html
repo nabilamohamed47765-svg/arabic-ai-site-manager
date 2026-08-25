@@ -919,8 +919,10 @@ async function loadUser() {
 
 
 async function runHealthCheck(hostname, sshStatus) {
-  const box = document.getElementById("healthCheckResult");
-  box.innerHTML = "⏳ جاري الفحص...";
+  const getBox = () => document.getElementById("healthCheckResult");
+  if (getBox()) getBox().innerHTML = "⏳ جاري الفحص...";
+
+  operationInProgress = true;
 
   try {
     const response = await fetch("/api/health-check-all", {
@@ -932,7 +934,7 @@ async function runHealthCheck(hostname, sshStatus) {
     const data = await response.json();
 
     if (!data.success) {
-      box.innerHTML = `❌ ${escapeHtml(data.error || "فشل الفحص")}`;
+      if (getBox()) getBox().innerHTML = `❌ ${escapeHtml(data.error || "فشل الفحص")}`;
       return;
     }
 
@@ -959,21 +961,27 @@ async function runHealthCheck(hostname, sshStatus) {
       sshLine = `⚪ SSH: لم يتم اختباره بعد (استخدم زر اختبار SSH)`;
     }
 
-    box.innerHTML = `
-      <div class="badge">${httpLine}</div>
-      <div class="badge">${dnsLine}</div>
-      <div class="badge">${tlsLine}</div>
-      <div class="badge">${sshLine}</div>
-    `;
+    if (getBox()) {
+      getBox().innerHTML = `
+        <div class="badge">${httpLine}</div>
+        <div class="badge">${dnsLine}</div>
+        <div class="badge">${tlsLine}</div>
+        <div class="badge">${sshLine}</div>
+      `;
+    }
   } catch (error) {
-    box.innerHTML = "❌ تعذر إجراء الفحص";
+    if (getBox()) getBox().innerHTML = "❌ تعذر إجراء الفحص";
+  } finally {
+    operationInProgress = false;
   }
 }
 
 
 async function runAiDiagnosis(hostname) {
-  const box = document.getElementById("aiDiagnosisResult");
-  box.innerHTML = "🤖 جاري التشخيص عبر الذكاء الاصطناعي...";
+  const getBox = () => document.getElementById("aiDiagnosisResult");
+  if (getBox()) getBox().innerHTML = "🤖 جاري التشخيص عبر الذكاء الاصطناعي...";
+
+  operationInProgress = true;
 
   try {
     const response = await fetch("/api/ai-diagnose", {
@@ -986,7 +994,7 @@ async function runAiDiagnosis(hostname) {
     const data = await response.json();
 
     if (!data.success) {
-      box.innerHTML = `❌ ${escapeHtml(data.error || "فشل التشخيص")}`;
+      if (getBox()) getBox().innerHTML = `❌ ${escapeHtml(data.error || "فشل التشخيص")}`;
       return;
     }
 
@@ -995,13 +1003,17 @@ async function runAiDiagnosis(hostname) {
       ? d.suggested_steps.map((s) => `<li>${escapeHtml(s)}</li>`).join("")
       : "";
 
-    box.innerHTML = `
-      <div class="badge">🩺 المشكلة: ${escapeHtml(d.problem || "غير محدد")}</div>
-      <div class="badge">🔎 السبب المحتمل: ${escapeHtml(d.likely_cause || "غير محدد")}</div>
-      ${steps ? `<div class="badge">📋 خطوات مقترحة:<ul>${steps}</ul></div>` : ""}
-    `;
+    if (getBox()) {
+      getBox().innerHTML = `
+        <div class="badge">🩺 المشكلة: ${escapeHtml(d.problem || "غير محدد")}</div>
+        <div class="badge">🔎 السبب المحتمل: ${escapeHtml(d.likely_cause || "غير محدد")}</div>
+        ${steps ? `<div class="badge">📋 خطوات مقترحة:<ul>${steps}</ul></div>` : ""}
+      `;
+    }
   } catch (error) {
-    box.innerHTML = "❌ انتهت مهلة الانتظار أو تعذر إجراء التشخيص، حاول مرة أخرى";
+    if (getBox()) getBox().innerHTML = "❌ انتهت مهلة الانتظار أو تعذر إجراء التشخيص، حاول مرة أخرى";
+  } finally {
+    operationInProgress = false;
   }
 }
 
@@ -1882,6 +1894,7 @@ function escapeHtml(
 ========================= */
 
 let refreshTimer = null;
+let operationInProgress = false;
 
 
 function startAutoRefresh() {
@@ -1898,6 +1911,10 @@ function startAutoRefresh() {
   refreshTimer =
     setInterval(
       async () => {
+
+        if (operationInProgress) {
+          return;
+        }
 
         await loadSites(true);
 
