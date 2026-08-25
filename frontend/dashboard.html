@@ -2458,9 +2458,21 @@ async function sendChatMessage() {
       return;
     }
 
-    if ((data.action === "diagnose" || data.action === "list_files") && data.site) {
-      pendingChatPlan = { action: data.action, hostname: data.site.hostname, siteId: data.site.id };
+    if ((data.action === "diagnose" || data.action === "list_files" || data.action === "write_file") && data.site) {
+      pendingChatPlan = {
+        action: data.action,
+        hostname: data.site.hostname,
+        siteId: data.site.id,
+        filePath: data.file_path || "",
+        fileContent: data.file_content || ""
+      };
       thinkingBubble.textContent = data.explanation;
+
+      if (data.action === "write_file") {
+        const preview = (data.file_content || "").slice(0, 300);
+        const truncated = (data.file_content || "").length > 300 ? "\n...(مقتطع)" : "";
+        thinkingBubble.textContent += `\n\n📄 الملف: ${data.file_path}\n--- المحتوى ---\n${preview}${truncated}`;
+      }
 
       const confirmWrap = document.createElement("div");
       confirmWrap.style.display = "flex";
@@ -2528,6 +2540,8 @@ async function executeChatPlan(confirmWrap) {
     }
   } else if (plan.action === "list_files") {
     await chatListFiles(plan.siteId, resultBubble);
+  } else if (plan.action === "write_file") {
+    await chatWriteFile(plan.siteId, plan.filePath, plan.fileContent, resultBubble);
   }
 }
 
@@ -2625,6 +2639,112 @@ async function pollChatReadResult(requestId, token, resultBubble, attempt) {
 
     setTimeout(() => {
       pollChatReadResult(requestId, token, resultBubble, attempt + 1);
+    }, 5000);
+
+  } catch {
+    resultBubble.textContent = "❌ Network error أثناء جلب النتيجة";
+  }
+}
+
+
+async function chatWriteFile(siteId, path, content, resultBubble) {
+  const token = getToken();
+
+  if (!token) {
+    window.location.href = "/test-auth.html";
+    return;
+  }
+
+  resultBubble.textContent = "⏳ جاري كتابة الملف على السيرفر...";
+
+  try {
+    const createResponse = await fetch("/api/sites/write", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify({ id: siteId, path, content, overwrite: false })
+    });
+
+    const createData = await createResponse.json();
+
+    if (!createResponse.ok) {
+      resultBubble.textContent = "❌ " + (createData.error || "فشل إنشاء طلب الكتابة");
+      return;
+    }
+
+    const requestId = createData.request_id;
+
+    const startResponse = await fetch("/api/sites/write/start", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify({ request_id: requestId })
+    });
+
+    const startData = await startResponse.json();
+
+    if (!startResponse.ok) {
+      resultBubble.textContent = "❌ " + (startData.error || "فشل تشغيل الكتابة");
+      return;
+    }
+
+    resultBubble.textContent = "⏳ تم التشغيل، جاري انتظار النتيجة...";
+
+    setTimeout(() => {
+      pollChatWriteResult(requestId, token, resultBubble, 0);
+    }, 8000);
+
+  } catch {
+    resultBubble.textContent = "❌ Network error: تعذر تشغيل كتابة الملف";
+  }
+}
+
+
+async function pollChatWriteResult(requestId, token, resultBubble, attempt) {
+  const maxAttempts = 14;
+
+  try {
+    const resultResponse = await fetch(
+      `/api/sites/read/result?id=${requestId}`,
+      { headers: { "Authorization": `Bearer ${token}` } }
+    );
+
+    const resultData = await resultResponse.json();
+
+    if (!resultResponse.ok || !resultData.success) {
+      resultBubble.textContent = "❌ " + (resultData.error || "تعذر جلب النتيجة");
+      return;
+    }
+
+    if (resultData.status === "completed") {
+      resultBubble.textContent = "✅ تم حفظ الملف: " + (resultData.target_path || "");
+      return;
+    }
+
+    if (resultData.status === "needs_confirmation") {
+      resultBubble.textContent =
+        "⚠️ الملف ده موجود بالفعل، مش هستبدله من غير تأكيد مباشر منك. لو عايز تستبدله، استخدم زرار \"✍️ كتابة ملف\" في قسم الملفات وأكّد الاستبدال من هناك.";
+      return;
+    }
+
+    if (resultData.status === "failed") {
+      resultBubble.textContent = "❌ " + (resultData.error || "فشلت الكتابة");
+      return;
+    }
+
+    if (attempt >= maxAttempts) {
+      resultBubble.textContent = "⏳ العملية طوّلت أكتر من المتوقع. جرب تاني بعد شوية.";
+      return;
+    }
+
+    resultBubble.textContent = "⏳ لسه بيجهز النتيجة... جاري المحاولة تاني.";
+
+    setTimeout(() => {
+      pollChatWriteResult(requestId, token, resultBubble, attempt + 1);
     }, 5000);
 
   } catch {
