@@ -303,6 +303,23 @@
       border-color: transparent;
     }
 
+    textarea {
+      width: 100%;
+      padding: 13px;
+      border: 1px solid #475569;
+      border-radius: 10px;
+      background: #0f172a;
+      color: white;
+      font-size: 14px;
+      font-family: monospace;
+      resize: vertical;
+    }
+
+    textarea:focus {
+      outline: 2px solid #3b82f6;
+      border-color: transparent;
+    }
+
     .password-wrapper {
       position: relative;
     }
@@ -741,6 +758,92 @@
 
 
 
+<div
+  class="modal"
+  id="writeModal">
+
+
+  <div class="modal-box">
+
+
+    <h2>
+      ✍️ كتابة ملف على الموقع
+    </h2>
+
+
+    <div class="security-note">
+
+      هيتم كتابة الملف جوه مجلد الموقع بس.
+      لو الملف موجود بالفعل، هيُطلب منك تأكيد
+      صريح قبل الاستبدال.
+
+    </div>
+
+
+
+    <label>
+      اسم/مسار الملف (نسبةً لمجلد الموقع)
+    </label>
+
+    <input
+      id="writeFilePath"
+      type="text"
+      placeholder="مثال: test.txt أو css/style.css"
+      autocomplete="off">
+
+
+
+    <label>
+      محتوى الملف
+    </label>
+
+    <textarea
+      id="writeFileContent"
+      rows="10"
+      placeholder="اكتب محتوى الملف هنا..."></textarea>
+
+
+    <div
+      id="writeOverwriteNote"
+      class="security-note"
+      style="display:none; color:#f5a623;">
+
+      ⚠️ الملف موجود بالفعل. دوس "استبدال" تاني للتأكيد.
+
+    </div>
+
+
+    <div class="modal-actions">
+
+
+      <button
+        class="save"
+        id="writeSaveButton"
+        onclick="submitWriteFile()">
+
+        ✍️ حفظ الملف
+
+      </button>
+
+
+      <button
+        class="cancel"
+        onclick="closeWriteModal()">
+
+        إلغاء
+
+      </button>
+
+
+    </div>
+
+
+  </div>
+
+</div>
+
+
+
 <script>
 
 
@@ -1102,6 +1205,9 @@ async function loadSites(isAutoRefresh) {
   const savedReadFilesBox =
     document.getElementById("readFilesResult");
 
+  const savedWriteFilesBox =
+    document.getElementById("writeFilesResult");
+
   const savedHealthHtml =
     savedHealthBox ? savedHealthBox.innerHTML : "";
 
@@ -1110,6 +1216,9 @@ async function loadSites(isAutoRefresh) {
 
   const savedReadFilesHtml =
     savedReadFilesBox ? savedReadFilesBox.innerHTML : "";
+
+  const savedWriteFilesHtml =
+    savedWriteFilesBox ? savedWriteFilesBox.innerHTML : "";
 
 
   if (!isAutoRefresh) {
@@ -1238,6 +1347,8 @@ async function loadSites(isAutoRefresh) {
 
         <div id="readFilesResult"></div>
 
+        <div id="writeFilesResult"></div>
+
         <div class="site-actions">
 
 
@@ -1281,6 +1392,15 @@ async function loadSites(isAutoRefresh) {
 
 
           <button
+            class="ssh-test-button"
+            onclick="openWriteModal('${escapeHtml(site.id)}')">
+
+            ✍️ كتابة ملف
+
+          </button>
+
+
+          <button
             class="delete-button"
             onclick="deleteSite(
               '${escapeHtml(site.id)}'
@@ -1318,6 +1438,13 @@ async function loadSites(isAutoRefresh) {
 
     if (newReadFilesBox && savedReadFilesHtml) {
       newReadFilesBox.innerHTML = savedReadFilesHtml;
+    }
+
+    const newWriteFilesBox =
+      document.getElementById("writeFilesResult");
+
+    if (newWriteFilesBox && savedWriteFilesHtml) {
+      newWriteFilesBox.innerHTML = savedWriteFilesHtml;
     }
 
 
@@ -2105,6 +2232,253 @@ async function pollReadResult(requestId, token, resultDiv, attempt) {
 
     setTimeout(() => {
       pollReadResult(requestId, token, resultDiv, attempt + 1);
+    }, 5000);
+
+  } catch {
+    if (resultDiv) {
+      resultDiv.textContent = "❌ Network error أثناء جلب النتيجة";
+    }
+    operationInProgress = false;
+  }
+}
+
+
+let writeModalSiteId = null;
+let writeModalOverwrite = false;
+
+
+function openWriteModal(siteId) {
+
+  writeModalSiteId = siteId;
+  writeModalOverwrite = false;
+
+  const pathInput = document.getElementById("writeFilePath");
+  const contentInput = document.getElementById("writeFileContent");
+  const note = document.getElementById("writeOverwriteNote");
+  const saveButton = document.getElementById("writeSaveButton");
+
+  if (pathInput) pathInput.value = "";
+  if (contentInput) contentInput.value = "";
+  if (note) note.style.display = "none";
+  if (saveButton) saveButton.textContent = "✍️ حفظ الملف";
+
+  document
+    .getElementById("writeModal")
+    .classList.add("active");
+
+}
+
+
+function closeWriteModal() {
+
+  writeModalSiteId = null;
+  writeModalOverwrite = false;
+
+  document
+    .getElementById("writeModal")
+    .classList.remove("active");
+
+}
+
+
+async function submitWriteFile() {
+
+  if (!writeModalSiteId) {
+    return;
+  }
+
+  const token = getToken();
+
+  if (!token) {
+    window.location.href = "/test-auth.html";
+    return;
+  }
+
+  const pathInput = document.getElementById("writeFilePath");
+  const contentInput = document.getElementById("writeFileContent");
+  const note = document.getElementById("writeOverwriteNote");
+  const saveButton = document.getElementById("writeSaveButton");
+
+  const path = pathInput ? pathInput.value.trim() : "";
+  const content = contentInput ? contentInput.value : "";
+
+  if (!path) {
+    if (note) {
+      note.style.display = "block";
+      note.style.color = "";
+      note.textContent = "⚠️ لازم تكتب اسم/مسار الملف أولاً.";
+    }
+    return;
+  }
+
+  const siteId = writeModalSiteId;
+  const overwrite = writeModalOverwrite;
+
+  operationInProgress = true;
+
+  if (saveButton) {
+    saveButton.textContent = "⏳ جاري الحفظ...";
+  }
+
+  const resultDiv = document.getElementById("writeFilesResult");
+
+  try {
+
+    const createResponse = await fetch("/api/sites/write", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify({ id: siteId, path: path, content: content, overwrite: overwrite })
+    });
+
+    const createData = await createResponse.json();
+
+    if (!createResponse.ok) {
+      if (saveButton) saveButton.textContent = "✍️ حفظ الملف";
+      operationInProgress = false;
+      if (note) {
+        note.style.display = "block";
+        note.style.color = "";
+        note.textContent = "❌ " + (createData.error || "فشل إنشاء طلب الكتابة");
+      }
+      return;
+    }
+
+    const requestId = createData.request_id;
+
+    const startResponse = await fetch("/api/sites/write/start", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify({ request_id: requestId })
+    });
+
+    const startData = await startResponse.json();
+
+    if (!startResponse.ok) {
+      if (saveButton) saveButton.textContent = "✍️ حفظ الملف";
+      operationInProgress = false;
+      if (note) {
+        note.style.display = "block";
+        note.style.color = "";
+        note.textContent = "❌ " + (startData.error || "فشل تشغيل الكتابة");
+      }
+      return;
+    }
+
+    closeWriteModal();
+
+    if (resultDiv) {
+      resultDiv.textContent = "⏳ تم التشغيل، جاري انتظار النتيجة...";
+    }
+
+    setTimeout(() => {
+      pollWriteResult(requestId, token, resultDiv, siteId, path, content, 0);
+    }, 8000);
+
+  } catch (error) {
+    if (saveButton) saveButton.textContent = "✍️ حفظ الملف";
+    operationInProgress = false;
+    if (note) {
+      note.style.display = "block";
+      note.style.color = "";
+      note.textContent = "❌ Network error: تعذر تشغيل كتابة الملف";
+    }
+  }
+}
+
+
+async function pollWriteResult(requestId, token, resultDiv, siteId, path, content, attempt) {
+
+  const maxAttempts = 14;
+
+  try {
+
+    const resultResponse = await fetch(
+      `/api/sites/read/result?id=${requestId}`,
+      { headers: { "Authorization": `Bearer ${token}` } }
+    );
+
+    const resultData = await resultResponse.json();
+
+    if (!resultResponse.ok || !resultData.success) {
+      if (resultDiv) {
+        resultDiv.textContent = "❌ " + (resultData.error || "تعذر جلب النتيجة");
+      }
+      operationInProgress = false;
+      return;
+    }
+
+    if (resultData.status === "completed") {
+      if (resultDiv) {
+        resultDiv.innerHTML =
+          "<strong>✍️ " + escapeHtml(resultData.target_path) + "</strong><pre>" +
+          escapeHtml(resultData.output || "تم") + "</pre>";
+      }
+      operationInProgress = false;
+      return;
+    }
+
+    if (resultData.status === "needs_confirmation") {
+
+      if (resultDiv) {
+        resultDiv.innerHTML =
+          "<strong>⚠️ " + escapeHtml(resultData.target_path) + "</strong><br>" +
+          escapeHtml(resultData.error || "الملف موجود بالفعل");
+      }
+
+      operationInProgress = false;
+
+      writeModalSiteId = siteId;
+      writeModalOverwrite = true;
+
+      const pathInput = document.getElementById("writeFilePath");
+      const contentInput = document.getElementById("writeFileContent");
+      const note = document.getElementById("writeOverwriteNote");
+      const saveButton = document.getElementById("writeSaveButton");
+
+      if (pathInput) pathInput.value = path;
+      if (contentInput) contentInput.value = content;
+      if (note) {
+        note.style.display = "block";
+        note.style.color = "#f5a623";
+        note.textContent = "⚠️ الملف موجود بالفعل. دوس \"استبدال\" تاني للتأكيد.";
+      }
+      if (saveButton) saveButton.textContent = "⚠️ استبدال";
+
+      document
+        .getElementById("writeModal")
+        .classList.add("active");
+
+      return;
+    }
+
+    if (resultData.status === "failed") {
+      if (resultDiv) {
+        resultDiv.textContent = "❌ " + (resultData.error || "فشلت الكتابة");
+      }
+      operationInProgress = false;
+      return;
+    }
+
+    if (attempt >= maxAttempts) {
+      if (resultDiv) {
+        resultDiv.textContent = "⏳ العملية طوّلت أكتر من المتوقع. دوس زرار «كتابة ملف» تاني بعد شوية.";
+      }
+      operationInProgress = false;
+      return;
+    }
+
+    if (resultDiv) {
+      resultDiv.textContent = "⏳ لسه بيجهز النتيجة... جاري المحاولة تاني.";
+    }
+
+    setTimeout(() => {
+      pollWriteResult(requestId, token, resultDiv, siteId, path, content, attempt + 1);
     }, 5000);
 
   } catch {
