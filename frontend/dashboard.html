@@ -971,6 +971,40 @@ async function runHealthCheck(hostname, sshStatus) {
 }
 
 
+async function runAiDiagnosis(hostname) {
+  const box = document.getElementById("aiDiagnosisResult");
+  box.innerHTML = "🤖 جاري التشخيص عبر الذكاء الاصطناعي...";
+
+  try {
+    const response = await fetch("/api/ai-diagnose", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hostname })
+    });
+
+    const data = await response.json();
+
+    if (!data.success) {
+      box.innerHTML = `❌ ${escapeHtml(data.error || "فشل التشخيص")}`;
+      return;
+    }
+
+    const d = data.diagnosis || {};
+    const steps = Array.isArray(d.suggested_steps)
+      ? d.suggested_steps.map((s) => `<li>${escapeHtml(s)}</li>`).join("")
+      : "";
+
+    box.innerHTML = `
+      <div class="badge">🩺 المشكلة: ${escapeHtml(d.problem || "غير محدد")}</div>
+      <div class="badge">🔎 السبب المحتمل: ${escapeHtml(d.likely_cause || "غير محدد")}</div>
+      ${steps ? `<div class="badge">📋 خطوات مقترحة:<ul>${steps}</ul></div>` : ""}
+    `;
+  } catch (error) {
+    box.innerHTML = "❌ تعذر إجراء التشخيص";
+  }
+}
+
+
 function getSSHStatus(
   site
 ) {
@@ -1164,6 +1198,8 @@ async function loadSites() {
 
         <div id="healthCheckResult"></div>
 
+        <div id="aiDiagnosisResult"></div>
+
         <div class="site-actions">
 
 
@@ -1184,6 +1220,15 @@ async function loadSites() {
             onclick="runHealthCheck('${escapeHtml(site.hostname)}', '${escapeHtml(site.ssh_test_status || "not_tested")}')">
 
             🩺 فحص الموقع
+
+          </button>
+
+
+          <button
+            class="ssh-test-button"
+            onclick="runAiDiagnosis('${escapeHtml(site.hostname)}')">
+
+            🤖 تشخيص AI
 
           </button>
 
