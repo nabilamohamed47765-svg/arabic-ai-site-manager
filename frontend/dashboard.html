@@ -1465,6 +1465,8 @@ async function loadSites(isAutoRefresh) {
 
         <div id="readFilesResult"></div>
 
+        <div id="gitStatusResult"></div>
+
         <div id="writeFilesResult"></div>
 
         <div id="backupsResult"></div>
@@ -1507,6 +1509,15 @@ async function loadSites(isAutoRefresh) {
             onclick="readFiles('${escapeHtml(site.id)}')">
 
             📂 عرض الملفات
+
+          </button>
+
+
+          <button
+            class="ssh-test-button"
+            onclick="checkGitStatus('${escapeHtml(site.id)}')">
+
+            🔍 فحص Git
 
           </button>
 
@@ -2379,6 +2390,146 @@ async function pollReadResult(requestId, token, resultDiv, attempt) {
 
     setTimeout(() => {
       pollReadResult(requestId, token, resultDiv, attempt + 1);
+    }, 5000);
+
+  } catch {
+    if (resultDiv) {
+      resultDiv.textContent = "❌ Network error أثناء جلب النتيجة";
+    }
+    operationInProgress = false;
+  }
+}
+
+
+async function checkGitStatus(siteId) {
+
+  operationInProgress = true;
+
+  const token = getToken();
+
+  if (!token) {
+    window.location.href = "/test-auth.html";
+    return;
+  }
+
+  const resultDiv = document.getElementById("gitStatusResult");
+
+  if (resultDiv) {
+    resultDiv.textContent = "⏳ جاري فحص Git...";
+  }
+
+  try {
+
+    const createResponse = await fetch("/api/sites/git-status", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify({ id: siteId })
+    });
+
+    const createData = await createResponse.json();
+
+    if (!createResponse.ok) {
+      if (resultDiv) {
+        resultDiv.textContent = "❌ " + (createData.error || "فشل إنشاء طلب فحص Git");
+      }
+      operationInProgress = false;
+      return;
+    }
+
+    const requestId = createData.request_id;
+
+    const startResponse = await fetch("/api/sites/git-status/start", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify({ request_id: requestId })
+    });
+
+    const startData = await startResponse.json();
+
+    if (!startResponse.ok) {
+      if (resultDiv) {
+        resultDiv.textContent = "❌ " + (startData.error || "فشل تشغيل فحص Git");
+      }
+      operationInProgress = false;
+      return;
+    }
+
+    if (resultDiv) {
+      resultDiv.textContent = "⏳ تم التشغيل، جاري انتظار النتيجة...";
+    }
+
+    setTimeout(() => {
+      pollGitStatusResult(requestId, token, resultDiv, 0);
+    }, 8000);
+
+  } catch (error) {
+    if (resultDiv) {
+      resultDiv.textContent = "❌ Network error: تعذر تشغيل فحص Git";
+    }
+    operationInProgress = false;
+  }
+}
+
+
+async function pollGitStatusResult(requestId, token, resultDiv, attempt) {
+
+  const maxAttempts = 14;
+
+  try {
+
+    const resultResponse = await fetch(
+      `/api/sites/git-status/result?id=${requestId}`,
+      { headers: { "Authorization": `Bearer ${token}` } }
+    );
+
+    const resultData = await resultResponse.json();
+
+    if (!resultResponse.ok || !resultData.success) {
+      if (resultDiv) {
+        resultDiv.textContent = "❌ " + (resultData.error || "تعذر جلب النتيجة");
+      }
+      operationInProgress = false;
+      return;
+    }
+
+    if (resultData.status === "completed") {
+      if (resultDiv) {
+        resultDiv.innerHTML =
+          "<strong>🔍 نتيجة فحص Git — " + escapeHtml(resultData.target_path) + "</strong><pre>" +
+          escapeHtml(resultData.output || "(فارغ)") + "</pre>";
+      }
+      operationInProgress = false;
+      return;
+    }
+
+    if (resultData.status === "failed") {
+      if (resultDiv) {
+        resultDiv.textContent = "❌ " + (resultData.error || "فشل فحص Git");
+      }
+      operationInProgress = false;
+      return;
+    }
+
+    if (attempt >= maxAttempts) {
+      if (resultDiv) {
+        resultDiv.textContent = "⏳ العملية طوّلت أكتر من المتوقع. دوس زرار «فحص Git» تاني بعد شوية.";
+      }
+      operationInProgress = false;
+      return;
+    }
+
+    if (resultDiv) {
+      resultDiv.textContent = "⏳ لسه بيجهز النتيجة... جاري المحاولة تاني.";
+    }
+
+    setTimeout(() => {
+      pollGitStatusResult(requestId, token, resultDiv, attempt + 1);
     }, 5000);
 
   } catch {
