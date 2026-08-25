@@ -1965,6 +1965,8 @@ start();
 
 async function readFiles(siteId) {
 
+  operationInProgress = true;
+
   const token = getToken();
 
   if (!token) {
@@ -2060,6 +2062,8 @@ async function readFiles(siteId) {
         if (resultDiv) {
           resultDiv.textContent = "❌ Network error أثناء جلب النتيجة";
         }
+      } finally {
+        operationInProgress = false;
       }
 
     }, 15000);
@@ -2068,6 +2072,7 @@ async function readFiles(siteId) {
     if (resultDiv) {
       resultDiv.textContent = "❌ Network error: تعذر تشغيل قراءة الملفات";
     }
+    operationInProgress = false;
   }
 }
 
