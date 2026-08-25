@@ -752,6 +752,22 @@
 
 
     <label>
+      رابط الموقع الفعلي (اللي بيفتح في المتصفح)
+    </label>
+
+    <input
+      id="publicUrl"
+      type="text"
+      placeholder="مثال: nodes.alwaysdata.net (لو مختلف عن SSH Host فوق)"
+      autocomplete="off">
+
+    <div style="font-size:12px; color:#94a3b8; margin-top:-6px; margin-bottom:10px;">
+      في بعض الاستضافات (زي alwaysdata) عنوان الدخول بالـ SSH بيكون مختلف عن رابط الموقع الحقيقي. لو سيبت الخانة فاضية، هنستخدم SSH Host نفسه في الفحص والتشخيص.
+    </div>
+
+
+
+    <label>
       SSH Port
     </label>
 
@@ -1428,6 +1444,12 @@ async function loadSites(isAutoRefresh) {
         </div>
 
 
+        ${site.public_url ? `
+        <div class="site-directory">
+          🔗 رابط الفحص: ${escapeHtml(site.public_url)}
+        </div>` : ""}
+
+
         <div class="badge">
 
           🔐 بيانات SSH محفوظة بشكل آمن
@@ -1464,7 +1486,7 @@ async function loadSites(isAutoRefresh) {
 
           <button
             class="ssh-test-button"
-            onclick="runHealthCheck('${escapeHtml(site.hostname)}', '${escapeHtml(site.ssh_test_status || "not_tested")}')">
+            onclick="runHealthCheck('${escapeHtml(site.public_url || site.hostname)}', '${escapeHtml(site.ssh_test_status || "not_tested")}')">
 
             🩺 فحص الموقع
 
@@ -1473,7 +1495,7 @@ async function loadSites(isAutoRefresh) {
 
           <button
             class="ssh-test-button"
-            onclick="runAiDiagnosis('${escapeHtml(site.hostname)}')">
+            onclick="runAiDiagnosis('${escapeHtml(site.public_url || site.hostname)}')">
 
             🤖 تشخيص AI
 
@@ -1607,6 +1629,13 @@ async function addSite() {
       .trim();
 
 
+  const publicUrl =
+    document
+      .getElementById("publicUrl")
+      .value
+      .trim();
+
+
   const port =
     Number(
       document
@@ -1703,6 +1732,9 @@ async function addSite() {
             name,
 
             hostname,
+
+            public_url:
+              publicUrl,
 
             port,
 
