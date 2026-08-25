@@ -1181,7 +1181,7 @@ async function runAiDiagnosis(hostname) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ hostname }),
-      signal: AbortSignal.timeout(35000)
+      signal: AbortSignal.timeout(60000)
     });
 
     const data = await response.json();
@@ -2416,7 +2416,7 @@ async function sendChatMessage() {
         "Authorization": `Bearer ${token}`
       },
       body: JSON.stringify({ message }),
-      signal: AbortSignal.timeout(30000)
+      signal: AbortSignal.timeout(60000)
     });
 
     const data = await response.json();
@@ -2474,7 +2474,7 @@ async function executeChatPlan(confirmWrap) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ hostname: plan.hostname }),
-        signal: AbortSignal.timeout(35000)
+        signal: AbortSignal.timeout(60000)
       });
 
       const data = await response.json();
