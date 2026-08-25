@@ -1,0 +1,187 @@
+# ملف التسليم — Arabic AI Site Manager
+# آخر تحديث: 25 أغسطس 2026
+# الحالة: جميع الميزات الأساسية مكتملة
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ملخص حالة المشروع
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+المشروع: تطبيق إدارة مواقع بالذكاء الاصطناعي يعمل بالكامل من الموبايل.
+البنية: Cloudflare Pages (Frontend HTML + Cloudflare Functions) + D1 + GitHub Actions للـ SSH.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+الميزات المكتملة والمؤكدة
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ 1. JWT — auth/login.js (إنشاء) + auth/me.js (تحقق) + مكرر في كل API
+✅ 2. إدارة المواقع — sites/index.js (إضافة/حذف/عرض) + dashboard.html
+✅ 3. SSH حقيقي — 5 workflows في GitHub Actions
+✅ 4. Health Checks — health.js + health-check.js + health-check-all.js + dns-check.js + tls-check.js
+✅ 5. تشخيص AI — ai-diagnose.js مع OpenRouter
+✅ 6. النسخ الاحتياطي — backups.js + جدول backups في D1 + خطوة backup في ssh-write.yml
+✅ 7. قفل التسجيل — register.js يرجع 403
+✅ 8. صفحة دخول جديدة — test-auth.html
+✅ 9. شات V1 — chat.js مع قوائم كلمات مفتاحية
+✅ 10. شات AI V2 — chat.js يدعم write_file + write_files
+✅ 11. فحص Git — git-status.js + ssh-git-status.yml
+✅ 12. Git Commit — git-commit.js + ssh-git-commit.yml
+✅ 13. write_files — chat.js يدعم write_files action مع مصفوفة ملفات
+✅ 14. إنشاء المجلدات الفرعية — ssh-write.yml يتضمن mkdir -p
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+آخر ميزة مؤكدة بالاختبار
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+write_files + إنشاء المجلدات الفرعية تلقائيًا
+الملفات المعدّلة في آخر مرحلة:
+- functions/api/chat.js ✅
+- frontend/dashboard.html ✅
+- .github/workflows/ssh-write.yml ✅ (يتضمن mkdir -p)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+البنية التقنية
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+- الاستضافة: Cloudflare Pages
+- قاعدة البيانات: Cloudflare D1 (مجاني)
+- النشر: GitHub Actions → Wrangler CLI (deploy.yml موجود بالفعل)
+- SSH: عبر GitHub Actions (وليس داخل Cloudflare Worker)
+- الذكاء الاصطناعي: OpenRouter
+- المصادقة: JWT يدوي
+- لا يوجد package.json في الجذر — المشروع Cloudflare Pages بحت
+- لا يحتاج npm install / npm run build
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ملف النشر
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+deploy.yml موجود بالفعل في .github/workflows/
+يعمل تلقائيًا عند كل push to main:
+1. Apply D1 migrations
+2. نسخ frontend/ + functions/ إلى dist/
+3. نشر عبر wrangler pages deploy
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+الحالة الحالية بعد الفحص
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+تم اختبار Git Push بنجاح:
+- commit + push تم للملفات التجريبية (agent-test/test.txt)
+- GitHub يعرض الملفات بنجاح
+- الـ branch: main
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ملاحظات مهمة
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. لا يوجد shell حر — التنفيذ عبر مسارات مقيدة
+2. AI يخطط أولًا — التنفيذ بعد موافقة المستخدم
+3. الأسرار لا توضع في Git
+4. المشروع يعمل من الموبايل
+5. handoff.txt لا يُحدّث إلا بعد تأكيد المستخدم
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+الملفات الرئيسية في المشروع
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Root:
+- wrangler.toml → إعدادات Cloudflare Pages + D1
+- .gitignore → تجاهل node_modules/.env/.wrangler
+- README.md → وصف مختصر
+
+frontend/:
+- index.html → صفحة الترحيب
+- dashboard.html → لوحة التحكم الرئيسية (3729 سطر)
+- test-auth.html → صفحة تسجيل الدخول
+
+functions/api/:
+- auth/login.js → تسجيل الدخول + JWT
+- auth/me.js → التحقق من الجلسة
+- auth/register.js → التسجيل (مغلق)
+- sites/index.js → CRUD للمواقع
+- sites/read.js + read/start.js + read/result.js → قراءة ملفات
+- sites/write.js + write/start.js → كتابة ملفات
+- sites/ssh-test.js + ssh-test/start.js → اختبار SSH
+- sites/git-status.js + git-status/start.js → git status
+- sites/git-commit.js + git-commit/start.js → git commit
+- sites/backups.js → النسخ الاحتياطي
+- chat.js → شات AI
+- ai-diagnose.js → تشخيص AI
+- health.js + health-check.js + health-check-all.js → Health Checks
+- dns-check.js → فحص DNS
+- tls-check.js → فحص TLS
+- settings.js → إعدادات المستخدم
+
+.github/workflows/:
+- deploy.yml → النشر التلقائي
+- ssh-test.yml → اختبار SSH
+- ssh-read.yml → قراءة ملفات
+- ssh-write.yml → كتابة ملفات (مع mkdir -p)
+- ssh-git-status.yml → git status
+- ssh-git-commit.yml → git commit
+
+migrations/:
+- 0001-0010 → بنية قاعدة البيانات (users, sites, sessions, tasks, logs, backups, ssh_requests)
+
+executor/:
+- server.js → خدمة SSH منفصلة (Express + ssh2)
+- package.json → تبعيات executor
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+جدول حالة الميزات
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+الميزة              | الحالة | الاختبار | النشر | ملاحظات
+--------------------|--------|----------|-------|--------
+JWT                 | ✅     | ✅       | ✅    | يعمل
+إدارة المواقع       | ✅     | ✅       | ✅    | يعمل
+SSH حقيقي          | ✅     | ✅       | ✅    | يعمل عبر GitHub Actions
+Health Checks       | ✅     | ✅       | ✅    | يعمل
+تشخيص AI           | ✅     | ✅       | ✅    | يعمل مع OpenRouter
+النسخ الاحتياطي    | ✅     | ✅       | ✅    | يعمل
+قفل التسجيل        | ✅     | ✅       | ✅    | register يرجع 403
+صفحة دخول جديدة   | ✅     | ✅       | ✅    | يعمل
+شات V1             | ✅     | ✅       | ✅    | يعمل
+شات AI V2          | ✅     | ✅       | ✅    | يعمل
+فحص Git             | ✅     | ✅       | ✅    | يعمل
+Git Commit          | ✅     | ✅       | ✅    | يعمل
+write_files         | ✅     | ✅       | ✅    | يعمل
+إنشاء المجلدات     | ✅     | ✅       | ✅    | mkdir -p يعمل
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+الخطوة التالية المقترحة
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ لا توجد خطوات ناقصة حالياً — جميع الميزات الأساسية مكتملة.
+
+ملاحظة: الخطوة "npm install / npm run build" المذكورة في النسخة السابقة
+لا تنطبق على هذا المشروع لأن:
+- المشروع Cloudflare Pages بحت (Frontend HTML + Cloudflare Functions)
+- لا يوجد package.json في الجRootElement
+- deploy.yml موجود بالفعل ويعمل
+- لا يحتاج build step تقليدي
+
+الخيارات المتاحة الآن:
+1. إضافة ميزات جديدة (يحتاج طلب واضح من المستخدم)
+2. تحسينات UI/UX (يحتاج طلب واضح من المستخدم)
+3. نشر على بيئة إنتاج حقيقية (يحتاج إعداد Cloudflare API Token)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+القواعد الثابتة
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. لا يوجد shell حر أو صلاحيات مفتوحة
+2. التنفيذ عبر مسارات مقيدة وآمنة
+3. AI يخطط أولًا — التنفيذ بعد موافقة المستخدم
+4. الأسرار لا توضع في Git
+5. لا تعرض أي secrets في terminal أو المتصفح
+6. لا تعمل تعديلات خارج نطاق المهمة
+7. لا تعمل Refactoring جانبي
+8. لا تغير Architecture بدون طلب واضح
+9. المشروع يجب أن يظل قابلًا للتسليط من الموبايل
+10. الخطوات صغيرة وقابلة للاختبار
+11. handoff.txt لا يُحدّث إلا بعد تأكيد المستخدم
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+تم التحديث بواسطة Buffy (Codebuff) — 25 أغسطس 2026
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
