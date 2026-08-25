@@ -248,7 +248,7 @@ ${sitesListText}
             "Content-Type": "application/json",
             "Authorization": `Bearer ${apiKey}`
           },
-          signal: AbortSignal.timeout(25000),
+          signal: AbortSignal.timeout(45000),
           body: JSON.stringify({
             model,
             ...(useJsonFormat ? { response_format: { type: "json_object" } } : {}),
