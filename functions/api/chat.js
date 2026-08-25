@@ -135,7 +135,7 @@ async function decryptValue(ciphertextB64, ivB64, secret) {
    (V1: تشخيص فقط — قراءة/كتابة تُضاف لاحقًا كخطوات منفصلة)
 ======================================== */
 
-const ALLOWED_ACTIONS = ["diagnose", "list_files", "write_file", "unknown"];
+const ALLOWED_ACTIONS = ["diagnose", "list_files", "write_file", "write_files", "unknown"];
 
 
 /* ========================================
@@ -262,10 +262,12 @@ export async function onRequestPost(context) {
     const prompt = `أنت مساعد داخل تطبيق إدارة مواقع، بتتكلم مع مستخدم غير تقني بالعربي.
 لازم يكون ردك بالكامل باللغة العربية الفصحى البسيطة فقط، ممنوع تستخدم أي حروف لاتينية أو ترجمة صوتية (transliteration).
 
-الإجراءات المتاحة حاليًا للتنفيذ هي ثلاثة:
+الإجراءات المتاحة حاليًا للتنفيذ هي أربعة:
 - "diagnose": تشخيص فني تلقائي بالذكاء الاصطناعي لموقع معين (يفحص HTTP/DNS/TLS ويطلع مشكلة محتملة وخطوات).
 - "list_files": عرض قائمة الملفات والمجلدات الموجودة فعليًا على السيرفر (في المجلد الرئيسي للموقع).
-- "write_file": كتابة أو إنشاء ملف جديد بمحتوى معيّن في مجلد الموقع، لما المستخدم يطلب صراحة إنشاء/كتابة/تعديل ملف ويحدد اسمه ومحتواه (مثلاً "اكتب ملف test.txt فيه كذا"، "أنشئ صفحة index.html بالمحتوى ده"). لو المستخدم طلب كتابة ملف بس مش واضح اسمه أو محتواه بالظبط، استخدم action="unknown" واطلب التوضيح، ماتخترعش محتوى من عندك.
+- "write_file": كتابة أو إنشاء ملف واحد بمحتوى معيّن في مجلد الموقع، لما المستخدم يطلب صراحة إنشاء/كتابة/تعديل ملف واحد بس ويحدد اسمه ومحتواه (مثلاً "اكتب ملف test.txt فيه كذا"، "أنشئ صفحة index.html بالمحتوى ده").
+- "write_files": نفس فكرة write_file بالظبط لكن لعدة ملفات مرة واحدة، لما المستخدم يطلب بناء أو تعديل موقع كامل أو صفحة كاملة محتاجة أكتر من ملف (مثلاً "اعملي موقع فيه صفحة رئيسية وتنسيق"، "اعمل index.html وstyle.css وscript.js"). كل ملف يتحط في مصفوفة "files"، كل عنصر فيها فيه "file_path" (مسار نسبي بسيط زي "index.html" أو "css/style.css") و"file_content" (المحتوى كامل).
+لو المستخدم طلب كتابة ملف/ملفات بس مش واضح اسمها أو محتواها بالظبط، استخدم action="unknown" واطلب التوضيح، ماتخترعش محتوى من عندك.
 
 مواقع المستخدم المسجلة:
 ${sitesListText}
@@ -275,16 +277,18 @@ ${sitesListText}
 مهمتك: افهم قصد المستخدم.
 - لو طلبه يتماشى مع تشخيص موقع (مشكلة، بطء، عطل، "افحصلي"، "شخصلي"، أو أي طلب عام عن حالة الموقع)، action = "diagnose".
 - لو طلبه عن عرض/معرفة الملفات أو محتوى الموقع أو نوع تقنيته (مثلاً "ورّيني الملفات"، "الموقع فيه إيه"، "عايز أعرف الموقع مبني بإيه")، action = "list_files".
-- لو طلبه صريح إنه عايز يكتب/ينشئ/يعدّل ملف ومحدد اسم الملف ومحتواه بوضوح، action = "write_file"، وحط اسم الملف في "file_path" (مسار نسبي بسيط زي "test.txt" أو "css/style.css") والمحتوى كامل في "file_content".
-- في الحالات التلاتة، اختار الموقع الأنسب من القائمة (لو ذكر اسمه أو جزء منه، أو لو عنده موقع واحد بس استخدمه تلقائيًا).
+- لو طلبه صريح إنه عايز يكتب/ينشئ/يعدّل ملف واحد بس ومحدد اسم الملف ومحتواه بوضوح، action = "write_file"، وحط اسم الملف في "file_path" (مسار نسبي بسيط زي "test.txt" أو "css/style.css") والمحتوى كامل في "file_content".
+- لو طلبه صريح إنه عايز يبني موقع/صفحة كاملة محتاجة أكتر من ملف، action = "write_files"، وحط كل ملف كعنصر في مصفوفة "files" بنفس شكل file_path/file_content. اكتب محتوى كامل واحترافي لكل ملف (HTML/CSS/JS متكاملين مع بعض)، ماتسيبش أي ملف فاضي أو ناقص.
+- في الحالات الأربعة، اختار الموقع الأنسب من القائمة (لو ذكر اسمه أو جزء منه، أو لو عنده موقع واحد بس استخدمه تلقائيًا).
 - لو طلبه مش متعلق بأي حاجة من دول، أو مش واضح أي موقع يقصد ومعندوش موقع واحد بس، رجّع action = "unknown" مع توضيح ودود بالعربي في explanation ليه معرفتش تنفذ الطلب أو محتاج توضيح إيه بالظبط.
 
 رد بصيغة JSON فقط بدون أي نص إضافي، بالشكل ده بالظبط:
 {
-  "action": "diagnose" أو "list_files" أو "write_file" أو "unknown",
+  "action": "diagnose" أو "list_files" أو "write_file" أو "write_files" أو "unknown",
   "site_name": "الاسم بالظبط من القائمة فوق أو null",
   "file_path": "مسار الملف لو action=write_file وإلا null",
   "file_content": "محتوى الملف كامل لو action=write_file وإلا null",
+  "files": [{"file_path": "...", "file_content": "..."}] لو action=write_files وإلا null,
   "explanation": "شرح قصير وودود بالعربي الفصيح لخطتك. لو action=unknown يبقى فيه شرح ليه"
 }`;
 
@@ -349,8 +353,9 @@ ${sitesListText}
 
     let filePath = "";
     let fileContent = "";
+    let files = [];
 
-    if (action === "diagnose" || action === "list_files" || action === "write_file") {
+    if (action === "diagnose" || action === "list_files" || action === "write_file" || action === "write_files") {
       if (sites.length === 1) {
         // عنده موقع واحد بس - مفيش داعي نعتمد على الموديل يكتب الاسم بالظبط
         matchedSite = sites[0];
@@ -377,6 +382,21 @@ ${sitesListText}
           action = "unknown";
         }
       }
+
+      if (action === "write_files") {
+        const rawFiles = Array.isArray(plan?.files) ? plan.files : [];
+
+        files = rawFiles
+          .map((f) => ({
+            file_path: String(f?.file_path || "").trim(),
+            file_content: typeof f?.file_content === "string" ? f.file_content : ""
+          }))
+          .filter((f) => f.file_path && f.file_content && !f.file_path.split("/").includes(".."));
+
+        if (files.length === 0) {
+          action = "unknown";
+        }
+      }
     }
 
     return Response.json({
@@ -385,6 +405,7 @@ ${sitesListText}
       site: matchedSite ? { id: matchedSite.id, name: matchedSite.name, hostname: matchedSite.check_url } : null,
       file_path: action === "write_file" ? filePath : null,
       file_content: action === "write_file" ? fileContent : null,
+      files: action === "write_files" ? files : null,
       explanation: String(plan?.explanation || "").trim() || "تمام، جاهز أنفّذ."
     });
   } catch (error) {
