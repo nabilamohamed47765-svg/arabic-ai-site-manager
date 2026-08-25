@@ -202,9 +202,22 @@ export async function onRequestPost(context) {
 
     const healthData = await healthResponse.json();
 
+    // فحص حتمي (مش معتمد على تفسير الـ AI): أي كود HTTP خارج نطاق 200-299
+    // يُعتبر مشكلة، حتى لو السيرفر "بيرد" (reachable=true). ده بيمنع إن
+    // موديل ضعيف يفوّت 403/404/500 لمجرد إن فيه استجابة من السيرفر.
+    const statusCode = healthData?.http?.status_code;
+    const httpStatusIsProblem =
+      healthData?.http?.reachable === true &&
+      typeof statusCode === "number" &&
+      (statusCode < 200 || statusCode >= 400);
+
+    const statusHint = httpStatusIsProblem
+      ? `\n\nملحوظة إلزامية: الموقع رجّع كود HTTP رقم ${statusCode}. أي كود خارج نطاق 200-299 هو مشكلة فعلية يجب ذكرها في "problem" حتى لو السيرفر رد (reachable=true) — رد الخطأ نفسه هو الدليل على المشكلة، ماتقولش "لا توجد مشكلة" في الحالة دي.`
+      : "";
+
     const prompt = `أنت مساعد فني لإدارة السيرفرات. لديك نتائج فحص تقني للموقع "${cleanHost}":
 
-${JSON.stringify(healthData, null, 2)}
+${JSON.stringify(healthData, null, 2)}${statusHint}
 
 حلل النتائج وأعد ردك بصيغة JSON فقط بدون أي نص إضافي، بهذا الشكل بالضبط:
 {
@@ -222,7 +235,7 @@ ${JSON.stringify(healthData, null, 2)}
             "Content-Type": "application/json",
             "Authorization": `Bearer ${apiKey}`
           },
-          signal: AbortSignal.timeout(25000),
+          signal: AbortSignal.timeout(45000),
           body: JSON.stringify({
             model,
             ...(useJsonFormat ? { response_format: { type: "json_object" } } : {}),
@@ -268,6 +281,16 @@ ${JSON.stringify(healthData, null, 2)}
         suggested_steps: [],
         raw: rawText
       };
+    }
+
+    // شبكة أمان: لو فيه كود HTTP مشكلة فعليًا بس الموديل الضعيف قال
+    // "لا توجد مشكلة" برضه، نصحح الرد بدل ما نصدّق الموديل على طول.
+    if (httpStatusIsProblem && /لا توجد مشكلة|لا يوجد مشكل/.test(diagnosis?.problem || "")) {
+      diagnosis.problem = `الموقع يرجع كود HTTP رقم ${statusCode} بدل صفحة سليمة`;
+      diagnosis.likely_cause = diagnosis.likely_cause || "الصفحة الرئيسية غير متاحة أو الصلاحيات/الملفات ناقصة على السيرفر";
+      if (!Array.isArray(diagnosis.suggested_steps) || diagnosis.suggested_steps.length === 0) {
+        diagnosis.suggested_steps = ["تأكد من وجود ملفات الموقع في المجلد الصحيح على السيرفر عبر SSH", "تأكد من صلاحيات المجلد والملفات"];
+      }
     }
 
     return Response.json({
