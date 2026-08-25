@@ -918,7 +918,7 @@ async function loadUser() {
 
 
 
-async function runHealthCheck(hostname) {
+async function runHealthCheck(hostname, sshStatus) {
   const box = document.getElementById("healthCheckResult");
   box.innerHTML = "⏳ جاري الفحص...";
 
@@ -948,10 +948,22 @@ async function runHealthCheck(hostname) {
       ? `🟢 TLS: شهادة سليمة`
       : `🔴 TLS: ${escapeHtml(data.tls.error || "مشكلة")}`;
 
+    let sshLine;
+    if (sshStatus === "success") {
+      sshLine = `🟢 SSH: متصل (آخر اختبار ناجح)`;
+    } else if (sshStatus === "failed") {
+      sshLine = `🔴 SSH: فشل آخر اختبار`;
+    } else if (sshStatus === "testing") {
+      sshLine = `🟡 SSH: جاري الاختبار حاليًا`;
+    } else {
+      sshLine = `⚪ SSH: لم يتم اختباره بعد (استخدم زر اختبار SSH)`;
+    }
+
     box.innerHTML = `
       <div class="badge">${httpLine}</div>
       <div class="badge">${dnsLine}</div>
       <div class="badge">${tlsLine}</div>
+      <div class="badge">${sshLine}</div>
     `;
   } catch (error) {
     box.innerHTML = "❌ تعذر إجراء الفحص";
@@ -1169,7 +1181,7 @@ async function loadSites() {
 
           <button
             class="ssh-test-button"
-            onclick="runHealthCheck('${escapeHtml(site.hostname)}')">
+            onclick="runHealthCheck('${escapeHtml(site.hostname)}', '${escapeHtml(site.ssh_test_status || "not_tested")}')">
 
             🩺 فحص الموقع
 
