@@ -1230,6 +1230,8 @@ async function loadSites(isAutoRefresh) {
 
         <div id="aiDiagnosisResult"></div>
 
+        <div id="readFilesResult"></div>
+
         <div class="site-actions">
 
 
@@ -1259,6 +1261,15 @@ async function loadSites(isAutoRefresh) {
             onclick="runAiDiagnosis('${escapeHtml(site.hostname)}')">
 
             🤖 تشخيص AI
+
+          </button>
+
+
+          <button
+            class="ssh-test-button"
+            onclick="readFiles('${escapeHtml(site.id)}')">
+
+            📂 عرض الملفات
 
           </button>
 
@@ -1949,6 +1960,116 @@ async function start() {
 
 
 start();
+
+
+
+async function readFiles(siteId) {
+
+  const token = getToken();
+
+  if (!token) {
+    window.location.href = "/test-auth.html";
+    return;
+  }
+
+  const resultDiv = document.getElementById("readFilesResult");
+
+  if (resultDiv) {
+    resultDiv.textContent = "⏳ جاري قراءة الملفات...";
+  }
+
+  try {
+
+    const createResponse = await fetch("/api/sites/read", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify({ id: siteId })
+    });
+
+    const createData = await createResponse.json();
+
+    if (!createResponse.ok) {
+      if (resultDiv) {
+        resultDiv.textContent = "❌ " + (createData.error || "فشل إنشاء طلب القراءة");
+      }
+      return;
+    }
+
+    const requestId = createData.request_id;
+
+    const startResponse = await fetch("/api/sites/read/start", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify({ request_id: requestId })
+    });
+
+    const startData = await startResponse.json();
+
+    if (!startResponse.ok) {
+      if (resultDiv) {
+        resultDiv.textContent = "❌ " + (startData.error || "فشل تشغيل القراءة");
+      }
+      return;
+    }
+
+    if (resultDiv) {
+      resultDiv.textContent = "⏳ تم التشغيل، جاري انتظار النتيجة (حوالي 15 ثانية)...";
+    }
+
+    setTimeout(async () => {
+
+      try {
+
+        const resultResponse = await fetch(
+          `/api/sites/read/result?id=${requestId}`,
+          { headers: { "Authorization": `Bearer ${token}` } }
+        );
+
+        const resultData = await resultResponse.json();
+
+        if (!resultResponse.ok || !resultData.success) {
+          if (resultDiv) {
+            resultDiv.textContent = "❌ " + (resultData.error || "تعذر جلب النتيجة");
+          }
+          return;
+        }
+
+        if (resultData.status === "completed") {
+          if (resultDiv) {
+            resultDiv.innerHTML =
+              "<strong>📂 " + escapeHtml(resultData.target_path) + "</strong><pre>" +
+              escapeHtml(resultData.output || "(فارغ)") + "</pre>";
+          }
+        } else if (resultData.status === "failed") {
+          if (resultDiv) {
+            resultDiv.textContent = "❌ " + (resultData.error || "فشلت القراءة");
+          }
+        } else {
+          if (resultDiv) {
+            resultDiv.textContent = "⏳ لسه شغال، جرب تدوس الزرار تاني بعد شوية.";
+          }
+        }
+
+      } catch {
+        if (resultDiv) {
+          resultDiv.textContent = "❌ Network error أثناء جلب النتيجة";
+        }
+      }
+
+    }, 15000);
+
+  } catch (error) {
+    if (resultDiv) {
+      resultDiv.textContent = "❌ Network error: تعذر تشغيل قراءة الملفات";
+    }
+  }
+}
 
 
 </script>
