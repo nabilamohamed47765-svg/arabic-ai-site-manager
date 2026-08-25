@@ -1063,7 +1063,7 @@ function getSSHStatus(
 
 
 
-async function loadSites() {
+async function loadSites(isAutoRefresh) {
 
   const token =
     getToken();
@@ -1080,10 +1080,27 @@ async function loadSites() {
     );
 
 
-  list.innerHTML =
-    `<div class="loading">
-      جاري تحميل الموقع...
-    </div>`;
+  const savedHealthBox =
+    document.getElementById("healthCheckResult");
+
+  const savedAiBox =
+    document.getElementById("aiDiagnosisResult");
+
+  const savedHealthHtml =
+    savedHealthBox ? savedHealthBox.innerHTML : "";
+
+  const savedAiHtml =
+    savedAiBox ? savedAiBox.innerHTML : "";
+
+
+  if (!isAutoRefresh) {
+
+    list.innerHTML =
+      `<div class="loading">
+        جاري تحميل الموقع...
+      </div>`;
+
+  }
 
 
   try {
@@ -1250,6 +1267,21 @@ async function loadSites() {
       </div>
 
     `;
+
+
+    const newHealthBox =
+      document.getElementById("healthCheckResult");
+
+    const newAiBox =
+      document.getElementById("aiDiagnosisResult");
+
+    if (newHealthBox && savedHealthHtml) {
+      newHealthBox.innerHTML = savedHealthHtml;
+    }
+
+    if (newAiBox && savedAiHtml) {
+      newAiBox.innerHTML = savedAiHtml;
+    }
 
 
   } catch (error) {
@@ -1866,7 +1898,7 @@ function startAutoRefresh() {
     setInterval(
       async () => {
 
-        await loadSites();
+        await loadSites(true);
 
       },
       5000
