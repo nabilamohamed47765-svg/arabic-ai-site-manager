@@ -1,3 +1,139 @@
+function base64UrlDecode(value) {
+  value = value.replace(/-/g, "+").replace(/_/g, "/");
+
+  while (value.length % 4) {
+    value += "=";
+  }
+
+  const binary = atob(value);
+  const bytes = new Uint8Array(binary.length);
+
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+
+  return bytes;
+}
+
+function base64Decode(value) {
+  const binary = atob(value);
+  const bytes = new Uint8Array(binary.length);
+
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+
+  return bytes;
+}
+
+
+/* ========================================
+   JWT
+======================================== */
+
+async function verifyJWT(token, secret) {
+  const parts = token.split(".");
+
+  if (parts.length !== 3) {
+    return null;
+  }
+
+  const [header, payload, signature] = parts;
+
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    {
+      name: "HMAC",
+      hash: "SHA-256"
+    },
+    false,
+    ["verify"]
+  );
+
+  const valid = await crypto.subtle.verify(
+    "HMAC",
+    key,
+    base64UrlDecode(signature),
+    new TextEncoder().encode(`${header}.${payload}`)
+  );
+
+  if (!valid) {
+    return null;
+  }
+
+  try {
+    const decoded = JSON.parse(
+      new TextDecoder().decode(base64UrlDecode(payload))
+    );
+
+    const now = Math.floor(Date.now() / 1000);
+
+    if (!decoded.exp || decoded.exp < now) {
+      return null;
+    }
+
+    return decoded;
+  } catch {
+    return null;
+  }
+}
+
+
+async function getAuthenticatedUser(context) {
+  const authorization = context.request.headers.get("Authorization");
+
+  if (!authorization || !authorization.startsWith("Bearer ")) {
+    return null;
+  }
+
+  return await verifyJWT(
+    authorization.substring(7),
+    context.env.JWT_SECRET
+  );
+}
+
+
+/* ========================================
+   DECRYPT (نفس أسلوب تشفير كلمة سر SSH)
+======================================== */
+
+async function deriveEncryptionKey(secret) {
+  if (!secret) {
+    throw new Error("SSH_ENCRYPTION_KEY غير مضبوط");
+  }
+
+  const secretBytes = new TextEncoder().encode(secret);
+
+  const hash = await crypto.subtle.digest("SHA-256", secretBytes);
+
+  return await crypto.subtle.importKey(
+    "raw",
+    hash,
+    { name: "AES-GCM" },
+    false,
+    ["encrypt", "decrypt"]
+  );
+}
+
+
+async function decryptValue(ciphertextB64, ivB64, secret) {
+  const key = await deriveEncryptionKey(secret);
+
+  const decrypted = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: base64Decode(ivB64) },
+    key,
+    base64Decode(ciphertextB64)
+  );
+
+  return new TextDecoder().decode(decrypted);
+}
+
+
+/* ========================================
+   POST /api/ai-diagnose
+======================================== */
+
 export async function onRequestPost(context) {
   try {
     const body = await context.request.json();
@@ -10,7 +146,39 @@ export async function onRequestPost(context) {
       );
     }
 
-    const apiKey = context.env.OPENROUTER_API_KEY;
+    // الإعدادات الافتراضية (لو مفيش مستخدم مسجل دخول أو مفيش إعدادات محفوظة)
+    let model = "openrouter/free";
+    let apiKey = context.env.OPENROUTER_API_KEY;
+
+    const user = await getAuthenticatedUser(context);
+
+    if (user) {
+      const settingsRow = await context.env.DB
+        .prepare(`
+          SELECT ai_model, openrouter_api_key_ciphertext, openrouter_api_key_iv
+          FROM users
+          WHERE id = ?
+          LIMIT 1
+        `)
+        .bind(user.sub)
+        .first();
+
+      if (settingsRow?.ai_model) {
+        model = settingsRow.ai_model;
+      }
+
+      if (settingsRow?.openrouter_api_key_ciphertext && settingsRow?.openrouter_api_key_iv) {
+        try {
+          apiKey = await decryptValue(
+            settingsRow.openrouter_api_key_ciphertext,
+            settingsRow.openrouter_api_key_iv,
+            context.env.SSH_ENCRYPTION_KEY
+          );
+        } catch {
+          // لو فشل فك التشفير لأي سبب، نفضل نستخدم مفتاح Cloudflare الافتراضي
+        }
+      }
+    }
 
     if (!apiKey) {
       return Response.json(
@@ -56,7 +224,7 @@ ${JSON.stringify(healthData, null, 2)}
           },
           signal: AbortSignal.timeout(25000),
           body: JSON.stringify({
-            model: "openrouter/free",
+            model,
             ...(useJsonFormat ? { response_format: { type: "json_object" } } : {}),
             messages: [{ role: "user", content: prompt }]
           })
