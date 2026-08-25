@@ -661,29 +661,33 @@
     <div class="section-title">
 
       <h2>
-        🤖 مدير الذكاء الاصطناعي
+        🤖 الشات مع الذكاء الاصطناعي
       </h2>
 
     </div>
 
+    <div
+      id="chatHistory"
+      style="max-height:360px; overflow-y:auto; display:flex; flex-direction:column; gap:10px; margin-bottom:12px;">
+    </div>
 
-    <div class="empty">
+    <div style="display:flex; gap:8px;">
 
-      <div style="font-size:45px;">
-        🧠
-      </div>
+      <input
+        id="chatInput"
+        type="text"
+        placeholder="اكتب طلبك هنا، مثلاً: شخصلي موقعي"
+        autocomplete="off"
+        onkeydown="if(event.key==='Enter'){sendChatMessage();}"
+        style="flex:1;">
 
-      <h3>
-        الذكاء الاصطناعي قيد التجهيز
-      </h3>
+      <button
+        class="save"
+        onclick="sendChatMessage()">
 
-      <p>
+        إرسال
 
-        سنضيف هنا المحادثة العربية
-        وتنفيذ المهام وتحليل الموقع
-        في المرحلة التالية.
-
-      </p>
+      </button>
 
     </div>
 
@@ -2350,6 +2354,146 @@ async function pollReadResult(requestId, token, resultDiv, attempt) {
       resultDiv.textContent = "❌ Network error أثناء جلب النتيجة";
     }
     operationInProgress = false;
+  }
+}
+
+
+/* ========================================
+   الشات مع الذكاء الاصطناعي
+======================================== */
+
+let pendingChatPlan = null;
+
+function appendChatBubble(text, who) {
+  const history = document.getElementById("chatHistory");
+  if (!history) return null;
+
+  const bubble = document.createElement("div");
+  bubble.style.maxWidth = "85%";
+  bubble.style.padding = "10px 14px";
+  bubble.style.borderRadius = "12px";
+  bubble.style.whiteSpace = "pre-wrap";
+  bubble.style.lineHeight = "1.6";
+
+  if (who === "user") {
+    bubble.style.alignSelf = "flex-end";
+    bubble.style.background = "#7c3aed";
+    bubble.style.color = "#fff";
+  } else {
+    bubble.style.alignSelf = "flex-start";
+    bubble.style.background = "#1e293b";
+    bubble.style.color = "#e2e8f0";
+  }
+
+  bubble.textContent = text;
+  history.appendChild(bubble);
+  history.scrollTop = history.scrollHeight;
+  return bubble;
+}
+
+async function sendChatMessage() {
+  const input = document.getElementById("chatInput");
+  const token = getToken();
+
+  if (!token) {
+    window.location.href = "test-auth.html";
+    return;
+  }
+
+  const message = (input?.value || "").trim();
+  if (!message) return;
+
+  input.value = "";
+  appendChatBubble(message, "user");
+  const thinkingBubble = appendChatBubble("⏳ جاري الفهم...", "ai");
+  pendingChatPlan = null;
+
+  try {
+    const response = await fetch("/api/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify({ message }),
+      signal: AbortSignal.timeout(30000)
+    });
+
+    const data = await response.json();
+
+    if (!data.success) {
+      thinkingBubble.textContent = "❌ " + (data.error || "حصل خطأ");
+      return;
+    }
+
+    if (data.action === "diagnose" && data.site) {
+      pendingChatPlan = { action: "diagnose", hostname: data.site.hostname };
+      thinkingBubble.textContent = data.explanation;
+
+      const confirmWrap = document.createElement("div");
+      confirmWrap.style.display = "flex";
+      confirmWrap.style.gap = "8px";
+      confirmWrap.style.marginTop = "8px";
+
+      const confirmBtn = document.createElement("button");
+      confirmBtn.className = "save";
+      confirmBtn.textContent = "✅ نفّذ";
+      confirmBtn.onclick = () => executeChatPlan(confirmWrap);
+
+      const cancelBtn = document.createElement("button");
+      cancelBtn.className = "cancel";
+      cancelBtn.textContent = "إلغاء";
+      cancelBtn.onclick = () => {
+        pendingChatPlan = null;
+        confirmWrap.remove();
+        appendChatBubble("تمام، إلغيت الخطوة دي.", "ai");
+      };
+
+      confirmWrap.appendChild(confirmBtn);
+      confirmWrap.appendChild(cancelBtn);
+      thinkingBubble.parentElement.insertBefore(confirmWrap, thinkingBubble.nextSibling);
+    } else {
+      thinkingBubble.textContent = data.explanation || "معرفتش أفهم طلبك، ممكن توضحه أكتر؟";
+    }
+  } catch {
+    thinkingBubble.textContent = "❌ تعذر الاتصال بالخادم، حاول تاني";
+  }
+}
+
+async function executeChatPlan(confirmWrap) {
+  if (!pendingChatPlan) return;
+  const plan = pendingChatPlan;
+  pendingChatPlan = null;
+  if (confirmWrap) confirmWrap.remove();
+
+  const resultBubble = appendChatBubble("🤖 جاري التنفيذ...", "ai");
+
+  if (plan.action === "diagnose") {
+    try {
+      const response = await fetch("/api/ai-diagnose", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hostname: plan.hostname }),
+        signal: AbortSignal.timeout(35000)
+      });
+
+      const data = await response.json();
+
+      if (!data.success) {
+        resultBubble.textContent = "❌ " + (data.error || "فشل التنفيذ");
+        return;
+      }
+
+      const d = data.diagnosis || {};
+      const steps = Array.isArray(d.suggested_steps) && d.suggested_steps.length
+        ? "\nخطوات مقترحة:\n" + d.suggested_steps.map((s) => "• " + s).join("\n")
+        : "";
+
+      resultBubble.textContent =
+        `المشكلة: ${d.problem || "غير محدد"}\nالسبب المحتمل: ${d.likely_cause || "غير محدد"}${steps}`;
+    } catch {
+      resultBubble.textContent = "❌ انتهت مهلة الانتظار أو تعذر التنفيذ، حاول تاني";
+    }
   }
 }
 
