@@ -253,38 +253,37 @@ jobs:
             const backupFile = `${stagingDir}/.backups/${idx}.bak`;
             const encodedContent = Buffer.from(f.content, "utf8").toString("base64");
 
-            remoteScriptParts.push(`
-mkdir -p "$(dirname "${stagingFile}")"
-echo "${encodedContent}" | base64 -d > "${stagingFile}"
-
-if [ -f "${targetFile}" ]; then
-  cp -p "${targetFile}" "${backupFile}"
-  echo "__BACKUP_RECORD__:${idx}:${rel}:existing"
-else
-  echo "__BACKUP_RECORD__:${idx}:${rel}:new"
-fi
-`);
+            remoteScriptParts.push(
+              `mkdir -p "$(dirname "${stagingFile}")"\n` +
+              `echo "${encodedContent}" | base64 -d > "${stagingFile}"\n` +
+              `if [ -f "${targetFile}" ]; then\n` +
+              `  cp -p "${targetFile}" "${backupFile}"\n` +
+              `  echo "__BACKUP_RECORD__:${idx}:${rel}:existing"\n` +
+              `else\n` +
+              `  echo "__BACKUP_RECORD__:${idx}:${rel}:new"\n` +
+              `fi`
+            );
           });
 
           // Verify all staging files exist
           files.forEach((f) => {
             const stagingFile = `${stagingDir}/${f.sanitizedRel}`;
-            remoteScriptParts.push(`
-if [ ! -f "${stagingFile}" ]; then
-  echo "Staging verification failed for ${f.sanitizedRel}" >&2
-  exit 1
-fi
-`);
+            remoteScriptParts.push(
+              `if [ ! -f "${stagingFile}" ]; then\n` +
+              `  echo "Staging verification failed for ${f.sanitizedRel}" >&2\n` +
+              `  exit 1\n` +
+              `fi`
+            );
           });
 
           // Apply: copy/move staging to target
           files.forEach((f) => {
             const targetFile = `${basePath}/${f.sanitizedRel}`;
             const stagingFile = `${stagingDir}/${f.sanitizedRel}`;
-            remoteScriptParts.push(`
-mkdir -p "$(dirname "${targetFile}")"
-cp -p "${stagingFile}" "${targetFile}"
-`);
+            remoteScriptParts.push(
+              `mkdir -p "$(dirname "${targetFile}")"\n` +
+              `cp -p "${stagingFile}" "${targetFile}"`
+            );
           });
 
           // Cleanup staging
