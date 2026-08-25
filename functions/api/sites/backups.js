@@ -88,3 +88,70 @@ export async function onRequestGet(context) {
     }, { status: 500 });
   }
 }
+
+export async function onRequestPost(context) {
+  try {
+    const user = await getUser(context);
+    if (!user) {
+      return Response.json({ success: false, error: "غير مصرح" }, { status: 401 });
+    }
+
+    const body = await context.request.json();
+    const backupId = String(body?.backup_id || "").trim();
+
+    if (!backupId) {
+      return Response.json({ success: false, error: "backup_id مطلوب للاستعادة" }, { status: 400 });
+    }
+
+    const backup = await context.env.DB.prepare(`
+      SELECT id, site_id, user_id, file_path, file_content
+      FROM backups
+      WHERE id = ? AND user_id = ?
+      LIMIT 1
+    `).bind(backupId, user.sub).first();
+
+    if (!backup) {
+      return Response.json({ success: false, error: "النسخة الاحتياطية غير موجودة" }, { status: 404 });
+    }
+
+    if (!backup.file_path || backup.file_path === "BATCH_SNAPSHOT") {
+      return Response.json({ success: false, error: "هذه النسخة ملخص مجمع. برجاء استعادة الملفات بشكل محدد" }, { status: 400 });
+    }
+
+    const site = await context.env.DB.prepare(`
+      SELECT id, working_directory, ssh_password_ciphertext, ssh_password_iv
+      FROM sites WHERE id = ? AND user_id = ? LIMIT 1
+    `).bind(backup.site_id, user.sub).first();
+
+    if (!site) {
+      return Response.json({ success: false, error: "الموقع المرتبط بالنسخة غير موجود" }, { status: 404 });
+    }
+
+    if (backup.file_path.split("/").includes("..")) {
+      return Response.json({ success: false, error: "مسار النسخة الاحتياطية غير صالح" }, { status: 400 });
+    }
+
+    const targetPath = backup.file_path.startsWith("/") ? backup.file_path : `${site.working_directory || "/"}/${backup.file_path}`.replace(/\/+/g, "/");
+    const requestId = crypto.randomUUID();
+    const now = new Date();
+    const expires = new Date(now.getTime() + 5 * 60 * 1000);
+
+    await context.env.DB.prepare(`
+      INSERT INTO ssh_requests (id, site_id, user_id, status, operation, target_path, file_content, overwrite_confirmed, created_at, expires_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(requestId, backup.site_id, user.sub, "pending", "write", targetPath, backup.file_content || "", 1, now.toISOString(), expires.toISOString()).run();
+
+    return Response.json({
+      success: true,
+      request_id: requestId,
+      status: "pending",
+      file_path: backup.file_path,
+      message: `تم إنشاء طلب استعادة النسخة الاحتياطية بنجاح للملف: ${backup.file_path}`
+    });
+
+  } catch (error) {
+    return Response.json({
+      success: false, error: "حدث خطأ أثناء استعادة النسخة الاحتياطية", details: error?.message || String(error)
+    }, { status: 500 });
+  }
+}

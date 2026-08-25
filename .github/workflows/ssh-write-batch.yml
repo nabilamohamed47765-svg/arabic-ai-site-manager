@@ -1,0 +1,465 @@
+name: SSH Write Batch Files
+
+on:
+  workflow_dispatch:
+    inputs:
+      request_id:
+        description: "Write Batch Request ID"
+        required: true
+        type: string
+
+jobs:
+  ssh-write-batch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install SSH tools
+        run: |
+          set -e
+          sudo apt-get update
+          sudo apt-get install -y openssh-client sshpass
+          npm install --global wrangler@latest
+
+      - name: Validate request ID
+        env:
+          REQUEST_ID: ${{ inputs.request_id }}
+        run: |
+          set -e
+          if [[ ! "$REQUEST_ID" =~ ^[A-Za-z0-9_-]{20,100}$ ]]; then
+            echo "Invalid request_id"
+            exit 1
+          fi
+
+      - name: Read request from D1
+        id: request
+        env:
+          REQUEST_ID: ${{ inputs.request_id }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -e
+
+          python3 <<'PY'
+          import os
+          import subprocess
+          import json
+          from datetime import datetime, timezone
+
+          request_id = os.environ["REQUEST_ID"]
+
+          def sql_escape(value):
+              return value.replace("'", "''")
+
+          sql = f"""
+          SELECT
+            r.id,
+            r.status,
+            r.operation,
+            r.target_path,
+            r.file_content,
+            r.overwrite_confirmed,
+            r.site_id,
+            r.user_id,
+            r.expires_at,
+            s.hostname,
+            s.port,
+            s.username,
+            s.ssh_password_ciphertext,
+            s.ssh_password_iv
+          FROM ssh_requests r
+          JOIN sites s
+            ON s.id = r.site_id
+          WHERE r.id = '{sql_escape(request_id)}'
+          LIMIT 1
+          """
+
+          result = subprocess.run(
+              ["wrangler", "d1", "execute", "DB", "--remote", "--json", "--command", sql],
+              capture_output=True, text=True, check=False
+          )
+
+          if result.returncode != 0:
+              print(result.stderr)
+              raise SystemExit(result.returncode)
+
+          data = json.loads(result.stdout)
+          rows = []
+
+          for item in data:
+              if isinstance(item, dict) and "results" in item:
+                  rows.extend(item["results"])
+
+          if not rows:
+              raise SystemExit("Write batch request not found")
+
+          row = rows[0]
+
+          required = ["hostname", "port", "username", "ssh_password_ciphertext", "ssh_password_iv", "target_path"]
+          for field in required:
+              if not row.get(field):
+                  raise SystemExit(f"Missing field: {field}")
+
+          if row.get("status") not in ["pending", "running"]:
+              raise SystemExit("Invalid request status: " + str(row.get("status")))
+
+          if row.get("operation") != "write_batch":
+              raise SystemExit("Unsupported operation: " + str(row.get("operation")))
+
+          if row.get("expires_at"):
+              expires = datetime.fromisoformat(row["expires_at"].replace("Z", "+00:00"))
+              if expires < datetime.now(timezone.utc):
+                  raise SystemExit("Request expired")
+
+          base_path = str(row["target_path"]).rstrip("/")
+          if not base_path.startswith("/"):
+              base_path = "/" + base_path
+
+          raw_payload = row.get("file_content") or "[]"
+          with open("/tmp/batch_payload.json", "w", encoding="utf-8") as f:
+              f.write(raw_payload)
+
+          output = {
+              "hostname": str(row["hostname"]),
+              "port": str(int(row["port"])),
+              "username": str(row["username"]),
+              "ciphertext": str(row["ssh_password_ciphertext"]),
+              "iv": str(row["ssh_password_iv"]),
+              "base_path": base_path,
+              "site_id": str(row["site_id"]),
+              "user_id": str(row["user_id"])
+          }
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+              for key, value in output.items():
+                  f.write(f"{key}<<EOF\n{value}\nEOF\n")
+
+          print("Batch write request loaded successfully.")
+          PY
+
+      - name: Decrypt SSH password
+        id: decrypt
+        env:
+          SSH_ENCRYPTION_KEY: ${{ secrets.SSH_ENCRYPTION_KEY }}
+          SSH_CIPHERTEXT: ${{ steps.request.outputs.ciphertext }}
+          SSH_IV: ${{ steps.request.outputs.iv }}
+        run: |
+          set -e
+
+          node <<'NODE'
+          const crypto = require("crypto");
+          const fs = require("fs");
+
+          const secret = process.env.SSH_ENCRYPTION_KEY;
+          const ciphertext = Buffer.from(process.env.SSH_CIPHERTEXT, "base64");
+          const iv = Buffer.from(process.env.SSH_IV, "base64");
+
+          const key = crypto.createHash("sha256").update(secret, "utf8").digest();
+          const tagLength = 16;
+
+          const encrypted = ciphertext.subarray(0, ciphertext.length - tagLength);
+          const authTag = ciphertext.subarray(ciphertext.length - tagLength);
+
+          const decipher = crypto.createDecipheriv(`aes-${key.length * 8}-gcm`, key, iv);
+          decipher.setAuthTag(authTag);
+
+          const password = Buffer.concat([decipher.update(encrypted), decipher.final()]).toString("utf8");
+
+          if (!password) {
+            throw new Error("SSH password is empty");
+          }
+
+          console.log("::add-mask::" + password);
+          fs.appendFileSync(process.env.GITHUB_ENV, `SSHPASS=${password}\n`, { encoding: "utf8" });
+          NODE
+
+      - name: Execute Batch Write & Transactional Staging
+        id: batch_exec
+        env:
+          SSHPASS: ${{ env.SSHPASS }}
+          SSH_HOST: ${{ steps.request.outputs.hostname }}
+          SSH_PORT: ${{ steps.request.outputs.port }}
+          SSH_USER: ${{ steps.request.outputs.username }}
+          BASE_PATH: ${{ steps.request.outputs.base_path }}
+          REQUEST_ID: ${{ inputs.request_id }}
+        run: |
+          set -e
+
+          node <<'NODE'
+          const fs = require("fs");
+          const { spawnSync } = require("child_process");
+          const path = require("path");
+
+          const raw = fs.readFileSync("/tmp/batch_payload.json", "utf8");
+          let files = [];
+          try {
+            const parsed = JSON.parse(raw);
+            files = Array.isArray(parsed) ? parsed : (parsed.files || []);
+          } catch (e) {
+            console.error("Invalid batch payload JSON:", e.message);
+            process.exit(1);
+          }
+
+          if (!files.length) {
+            console.error("No files in batch");
+            process.exit(1);
+          }
+
+          const basePath = process.env.BASE_PATH;
+          const reqId = process.env.REQUEST_ID.replace(/[^A-Za-z0-9_-]/g, "");
+          const stagingDir = `${basePath}/.staging_${reqId}`;
+
+          console.log(`Starting Batch Write for ${files.length} files into ${basePath}...`);
+
+          // Sanitize paths
+          for (const f of files) {
+            const rel = String(f.path || f.file_path || "").trim().replace(/^\/+/, "");
+            if (!rel || rel.split("/").includes("..")) {
+              console.error("Unsafe path in batch:", rel);
+              process.exit(1);
+            }
+            f.sanitizedRel = rel;
+            f.content = typeof f.content === "string" ? f.content : (f.file_content || "");
+          }
+
+          // Build a shell script to run on remote host via ssh
+          // 1. Create staging directory
+          // 2. Write each file to staging
+          // 3. For any file that exists at final target, record and backup its content
+          // 4. Move files to target
+          // 5. Cleanup staging
+
+          const remoteScriptParts = [];
+          remoteScriptParts.push(`set -e`);
+          remoteScriptParts.push(`BASE="${basePath}"`);
+          remoteScriptParts.push(`STAGING="${stagingDir}"`);
+          remoteScriptParts.push(`mkdir -p "$STAGING"`);
+
+          // Backup manifest to store on remote
+          remoteScriptParts.push(`mkdir -p "$STAGING/.backups"`);
+
+          files.forEach((f, idx) => {
+            const rel = f.sanitizedRel;
+            const targetFile = `${basePath}/${rel}`;
+            const stagingFile = `${stagingDir}/${rel}`;
+            const backupFile = `${stagingDir}/.backups/${idx}.bak`;
+            const encodedContent = Buffer.from(f.content, "utf8").toString("base64");
+
+            remoteScriptParts.push(`
+mkdir -p "$(dirname "${stagingFile}")"
+echo "${encodedContent}" | base64 -d > "${stagingFile}"
+
+if [ -f "${targetFile}" ]; then
+  cp -p "${targetFile}" "${backupFile}"
+  echo "__BACKUP_RECORD__:${idx}:${rel}:existing"
+else
+  echo "__BACKUP_RECORD__:${idx}:${rel}:new"
+fi
+`);
+          });
+
+          // Verify all staging files exist
+          files.forEach((f) => {
+            const stagingFile = `${stagingDir}/${f.sanitizedRel}`;
+            remoteScriptParts.push(`
+if [ ! -f "${stagingFile}" ]; then
+  echo "Staging verification failed for ${f.sanitizedRel}" >&2
+  exit 1
+fi
+`);
+          });
+
+          // Apply: copy/move staging to target
+          files.forEach((f) => {
+            const targetFile = `${basePath}/${f.sanitizedRel}`;
+            const stagingFile = `${stagingDir}/${f.sanitizedRel}`;
+            remoteScriptParts.push(`
+mkdir -p "$(dirname "${targetFile}")"
+cp -p "${stagingFile}" "${targetFile}"
+`);
+          });
+
+          // Cleanup staging
+          remoteScriptParts.push(`rm -rf "$STAGING"`);
+          remoteScriptParts.push(`echo "__BATCH_WRITE_SUCCESS__"`);
+
+          const fullScript = remoteScriptParts.join("\n");
+          fs.writeFileSync("/tmp/remote_script.sh", fullScript, "utf8");
+
+          // Execute remote script via ssh
+          const sshHost = process.env.SSH_HOST;
+          const sshPort = process.env.SSH_PORT;
+          const sshUser = process.env.SSH_USER;
+
+          const sshArgs = [
+            "-o", "StrictHostKeyChecking=accept-new",
+            "-o", "ConnectTimeout=25",
+            "-o", "ConnectionAttempts=1",
+            "-p", sshPort,
+            `${sshUser}@${sshHost}`,
+            "bash -s"
+          ];
+
+          const res = spawnSync("sshpass", ["-e", "ssh", ...sshArgs], {
+            input: fullScript,
+            encoding: "utf8",
+            maxBuffer: 20 * 1024 * 1024
+          });
+
+          console.log("SSH Output:", res.stdout);
+          if (res.stderr) console.error("SSH Stderr:", res.stderr);
+
+          if (res.status !== 0 || !res.stdout.includes("__BATCH_WRITE_SUCCESS__")) {
+            console.error("Batch write failed on remote server with exit code:", res.status);
+            // Save failure log
+            fs.writeFileSync("/tmp/batch_error.txt", res.stderr || res.stdout || "Unknown SSH error");
+            process.exit(1);
+          }
+
+          // Parse backup records
+          const backupRecords = [];
+          const lines = res.stdout.split("\n");
+          lines.forEach(line => {
+            if (line.startsWith("__BACKUP_RECORD__:")) {
+              const parts = line.split(":");
+              backupRecords.push({
+                index: parseInt(parts[1]),
+                path: parts[2],
+                type: parts[3]
+              });
+            }
+          });
+
+          fs.writeFileSync("/tmp/batch_result.json", JSON.stringify({
+            status: "success",
+            filesCount: files.length,
+            backups: backupRecords
+          }), "utf8");
+
+          NODE
+
+      - name: Save successful batch result in D1
+        if: success()
+        env:
+          REQUEST_ID: ${{ inputs.request_id }}
+          SITE_ID: ${{ steps.request.outputs.site_id }}
+          USER_ID: ${{ steps.request.outputs.user_id }}
+          BASE_PATH: ${{ steps.request.outputs.base_path }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -e
+
+          python3 <<'PY'
+          import os
+          import subprocess
+          import json
+          import uuid
+
+          request_id = os.environ["REQUEST_ID"]
+          site_id = os.environ["SITE_ID"]
+          user_id = os.environ["USER_ID"]
+          base_path = os.environ["BASE_PATH"]
+
+          def sql_escape(value):
+              return value.replace("'", "''")
+
+          with open("/tmp/batch_result.json", "r", encoding="utf-8") as f:
+              res = json.load(f)
+
+          with open("/tmp/batch_payload.json", "r", encoding="utf-8") as f:
+              payload = json.load(f)
+              files = payload if isinstance(payload, list) else payload.get("files", [])
+
+          msg = f"تم كتابة عدد {len(files)} ملفات بنجاح بنظام Batch Write."
+
+          sql_updates = [
+              f"""
+              UPDATE ssh_requests
+              SET
+                status = 'completed',
+                output = '{sql_escape(msg)}',
+                error = NULL,
+                completed_at = CURRENT_TIMESTAMP
+              WHERE id = '{sql_escape(request_id)}';
+              """
+          ]
+
+          # Save a snapshot record in backups table for this batch
+          snapshot_id = str(uuid.uuid4())
+          manifest_summary = json.dumps([f.get("path") or f.get("file_path") for f in files])
+          sql_updates.append(f"""
+          INSERT INTO backups (id, user_id, site_id, task_id, location, description, file_path, file_content, status)
+          VALUES (
+            '{sql_escape(snapshot_id)}',
+            '{sql_escape(user_id)}',
+            '{sql_escape(site_id)}',
+            NULL,
+            '{sql_escape(base_path)}',
+            'نسخة احتياطية قبل البناء المجمع (طلب {sql_escape(request_id)})',
+            'BATCH_SNAPSHOT',
+            '{sql_escape(manifest_summary)}',
+            'created'
+          );
+          """)
+
+          full_sql = "\n".join(sql_updates)
+          subprocess.run(
+              ["wrangler", "d1", "execute", "DB", "--remote", "--command", full_sql],
+              check=True
+          )
+
+          print("Batch write results and snapshot saved to D1.")
+          PY
+
+      - name: Save failed batch result in D1
+        if: failure()
+        env:
+          REQUEST_ID: ${{ inputs.request_id }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -e
+
+          python3 <<'PY'
+          import os
+          import subprocess
+
+          request_id = os.environ["REQUEST_ID"]
+
+          def sql_escape(value):
+              return value.replace("'", "''")
+
+          err_msg = "فشل تنفيذ الكتابة المجمعة للملفات"
+          try:
+              if os.path.exists("/tmp/batch_error.txt"):
+                  with open("/tmp/batch_error.txt", "r", encoding="utf-8", errors="replace") as f:
+                      err_msg = f.read()[:2000]
+          except Exception:
+              pass
+
+          sql = f"""
+          UPDATE ssh_requests
+          SET
+            status = 'failed',
+            output = NULL,
+            error = '{sql_escape("فشل Batch Write: " + err_msg)}',
+            completed_at = CURRENT_TIMESTAMP
+          WHERE id = '{sql_escape(request_id)}'
+          """
+
+          subprocess.run(
+              ["wrangler", "d1", "execute", "DB", "--remote", "--command", sql],
+              check=True
+          )
+
+          print("Batch failure status recorded in D1.")
+          PY

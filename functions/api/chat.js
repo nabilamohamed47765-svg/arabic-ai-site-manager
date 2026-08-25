@@ -1,3 +1,6 @@
+import { autoFixWebsiteManifest } from "./builder/autofix.js";
+import { validateWebsiteManifest } from "./builder/validate.js";
+
 function base64UrlDecode(value) {
   value = value.replace(/-/g, "+").replace(/_/g, "/");
 
@@ -132,10 +135,7 @@ async function decryptValue(ciphertextB64, ivB64, secret) {
 
 /* ========================================
    الإجراءات المسموح بيها للـ AI يخطط لها
-   (V1: تشخيص فقط — قراءة/كتابة تُضاف لاحقًا كخطوات منفصلة)
-======================================== */
-
-const ALLOWED_ACTIONS = ["diagnose", "list_files", "write_file", "write_files", "unknown"];
+   (V1: تشخيص فقط — قراءة/كتا�const ALLOWED_ACTIONS = ["diagnose", "list_files", "write_file", "write_files", "build_site", "unknown"];
 
 
 /* ========================================
@@ -183,21 +183,14 @@ export async function onRequestPost(context) {
     }
 
     // اختيار الموقع الافتراضي: لو عنده موقع واحد بس، بنستخدمه دايمًا
-    // من غير ما نعتمد على الموديل يكتب اسمه صح.
     const defaultSite = sites.length === 1 ? sites[0] : null;
 
-    // راوتر سريع بكلمات مفتاحية (قبل اللجوء للـ AI): بيغطي أكتر
-    // الصيغ الشائعة، وبيتجنب مشاكل الموديل المجاني الضعيف (فهم
-    // خاطئ، رد بطيء، أو timeout) في الحالات الواضحة.
     const lowerMessage = message.toLowerCase();
 
     const listFilesKeywords = /ملف|الملفات|مجلد|فولدر|directory|files/;
     const diagnoseKeywords = /مشكل|بطء|بطيء|عطل|افحص|فحص|شخص|شغال|down|error|خطأ/;
-    const writeKeywords = /اكتب|إكتب|أكتب|انشئ|أنشئ|اضف|أضف|عدل|عدّل|احفظ|أحفظ/;
+    const writeKeywords = /اكتب|إكتب|أكتب|انشئ|أنشئ|ابن|ابني|صمم|اعمل|اضف|أضف|عدل|عدّل|احفظ|أحفظ|موقع|landing|agency|services/;
 
-    // لو الرسالة فيها نية كتابة/إنشاء واضحة، نتجاوز الراوتر السريع
-    // بالكامل ونسيب الأمر للذكاء الاصطناعي (action = write_file)،
-    // عشان كلمة "ملف" وحدها متخطفش الطلب لـ list_files غلط.
     if (defaultSite && !writeKeywords.test(lowerMessage)) {
       if (listFilesKeywords.test(lowerMessage)) {
         return Response.json({
@@ -218,7 +211,7 @@ export async function onRequestPost(context) {
       }
     }
 
-    // إعدادات AI الخاصة بالمستخدم (نفس أسلوب ai-diagnose.js)
+    // إعدادات AI الخاصة بالمستخدم
     let model = "openrouter/free";
     let apiKey = context.env.OPENROUTER_API_KEY;
 
@@ -244,7 +237,7 @@ export async function onRequestPost(context) {
           context.env.SSH_ENCRYPTION_KEY
         );
       } catch {
-        // نفضل نستخدم مفتاح Cloudflare الافتراضي لو فشل فك التشفير
+        // Fallback to default
       }
     }
 
@@ -259,37 +252,52 @@ export async function onRequestPost(context) {
       .map((s) => `- الاسم: "${s.name}" — العنوان: ${s.check_url}`)
       .join("\n");
 
-    const prompt = `أنت مساعد داخل تطبيق إدارة مواقع، بتتكلم مع مستخدم غير تقني بالعربي.
-لازم يكون ردك بالكامل باللغة العربية الفصحى البسيطة فقط، ممنوع تستخدم أي حروف لاتينية أو ترجمة صوتية (transliteration).
+    const prompt = `أنت مهندس ومصمم مواقع ذكي متقدم (AI Website Builder Agent) داخل نظام إدارة المواقع العربي.
+تتحدث باللغة العربية الفصحى البسيطة والمهذبة فقط.
 
-الإجراءات المتاحة حاليًا للتنفيذ هي أربعة:
-- "diagnose": تشخيص فني تلقائي بالذكاء الاصطناعي لموقع معين (يفحص HTTP/DNS/TLS ويطلع مشكلة محتملة وخطوات).
-- "list_files": عرض قائمة الملفات والمجلدات الموجودة فعليًا على السيرفر (في المجلد الرئيسي للموقع).
-- "write_file": كتابة أو إنشاء ملف واحد بمحتوى معيّن في مجلد الموقع، لما المستخدم يطلب صراحة إنشاء/كتابة/تعديل ملف واحد بس ويحدد اسمه ومحتواه (مثلاً "اكتب ملف test.txt فيه كذا"، "أنشئ صفحة index.html بالمحتوى ده").
-- "write_files": نفس فكرة write_file بالظبط لكن لعدة ملفات مرة واحدة، لما المستخدم يطلب بناء أو تعديل موقع كامل أو صفحة كاملة محتاجة أكتر من ملف (مثلاً "اعملي موقع فيه صفحة رئيسية وتنسيق"، "اعمل index.html وstyle.css وscript.js"). كل ملف يتحط في مصفوفة "files"، كل عنصر فيها فيه "file_path" (مسار نسبي بسيط زي "index.html" أو "css/style.css") و"file_content" (المحتوى كامل).
-لو المستخدم طلب كتابة ملف/ملفات بس مش واضح اسمها أو محتواها بالظبط، استخدم action="unknown" واطلب التوضيح، ماتخترعش محتوى من عندك.
+الإجراءات المتاحة للتنفيذ:
+- "diagnose": فحص وتشخيص السيرفر وشهادات SSL و DNS وحالة الموقع.
+- "list_files": استعراض قائمة ملفات الموقع على السيرفر.
+- "write_file": كتابة أو تعديل ملف فردي محدد.
+- "write_files" أو "build_site": بناء موقع متكامل احترافي متعدد الملفات (أو صفحة هبوط متكاملة) وفق المعايير العالمية.
+
+عند طلب بناء موقع (خاصة لمجالات التسويق الرقمي، خدمات النمو، Social Media Management, SEO, UGC, Paid Ads, SaaS, أو الشركات التي تستهدف السوق الأمريكي والبريطاني US/UK):
+1. صمم خطة معمارية للمشروع (Blueprint) تشمل الهوية، الجمهور، وأسماء الصفحات.
+2. أنشئ هيكل ملفات متكامل يربط الصفحات ببعضها (مثال: index.html, services.html, about.html, contact.html, css/style.css, js/main.js).
+3. اكتب كود HTML5 دلالي حديث بالكامل مع:
+   - <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   - <meta name="description"> و <title> مناسب للـ SEO والتحويل
+   - بيانات Schema.org بصيغة JSON-LD
+   - وسوم Open Graph
+   - روابط تنقل سليمة ومترابطة بين كل الصفحات
+   - نصوص احترافية وعبارات دعوة للعمل (CTAs) مقنعة للعملاء في أمريكا وبريطانيا
+4. اكتب تنسيقات CSS نقية وعصرية في css/style.css متجاوبة بالكامل مع الموبايل ومريحة للعين.
+5. اكتب تفاعلات JS أساسية وسلسة في js/main.js.
 
 مواقع المستخدم المسجلة:
 ${sitesListText}
 
 رسالة المستخدم: "${message}"
 
-مهمتك: افهم قصد المستخدم.
-- لو طلبه يتماشى مع تشخيص موقع (مشكلة، بطء، عطل، "افحصلي"، "شخصلي"، أو أي طلب عام عن حالة الموقع)، action = "diagnose".
-- لو طلبه عن عرض/معرفة الملفات أو محتوى الموقع أو نوع تقنيته (مثلاً "ورّيني الملفات"، "الموقع فيه إيه"، "عايز أعرف الموقع مبني بإيه")، action = "list_files".
-- لو طلبه صريح إنه عايز يكتب/ينشئ/يعدّل ملف واحد بس ومحدد اسم الملف ومحتواه بوضوح، action = "write_file"، وحط اسم الملف في "file_path" (مسار نسبي بسيط زي "test.txt" أو "css/style.css") والمحتوى كامل في "file_content".
-- لو طلبه صريح إنه عايز يبني موقع/صفحة كاملة محتاجة أكتر من ملف، action = "write_files"، وحط كل ملف كعنصر في مصفوفة "files" بنفس شكل file_path/file_content. اكتب محتوى كامل واحترافي لكل ملف (HTML/CSS/JS متكاملين مع بعض)، ماتسيبش أي ملف فاضي أو ناقص.
-- في الحالات الأربعة، اختار الموقع الأنسب من القائمة (لو ذكر اسمه أو جزء منه، أو لو عنده موقع واحد بس استخدمه تلقائيًا).
-- لو طلبه مش متعلق بأي حاجة من دول، أو مش واضح أي موقع يقصد ومعندوش موقع واحد بس، رجّع action = "unknown" مع توضيح ودود بالعربي في explanation ليه معرفتش تنفذ الطلب أو محتاج توضيح إيه بالظبط.
-
-رد بصيغة JSON فقط بدون أي نص إضافي، بالشكل ده بالظبط:
+رد بصيغة JSON فقط:
 {
   "action": "diagnose" أو "list_files" أو "write_file" أو "write_files" أو "unknown",
-  "site_name": "الاسم بالظبط من القائمة فوق أو null",
-  "file_path": "مسار الملف لو action=write_file وإلا null",
-  "file_content": "محتوى الملف كامل لو action=write_file وإلا null",
-  "files": [{"file_path": "...", "file_content": "..."}] لو action=write_files وإلا null,
-  "explanation": "شرح قصير وودود بالعربي الفصيح لخطتك. لو action=unknown يبقى فيه شرح ليه"
+  "site_name": "الاسم من القائمة أو null",
+  "blueprint": {
+    "title": "عنوان المشروع أو اسم الشركة",
+    "category": "Agency / Landing Page / SaaS / Portfolio / Local",
+    "target_market": "US/UK",
+    "strategy": "ملخص الاستراتيجية والهوية البصرية",
+    "pages": ["index.html", "services.html", "about.html", "contact.html"]
+  },
+  "file_path": "مسار الملف لو write_file فقط",
+  "file_content": "محتوى الملف لو write_file فقط",
+  "files": [
+    { "file_path": "index.html", "file_content": "<!DOCTYPE html>..." },
+    { "file_path": "css/style.css", "file_content": "..." },
+    { "file_path": "js/main.js", "file_content": "..." }
+  ],
+  "explanation": "شرح استراتيجي منظم وواضح بالعربي لخطة الموقع ومكوناته."
 }`;
 
     async function callAi(useJsonFormat) {
@@ -344,20 +352,20 @@ ${sitesListText}
       return Response.json({
         success: true,
         action: "unknown",
-        explanation: "معرفتش أفهم طلبك بشكل واضح، ممكن تعيد صياغته؟"
+        explanation: "معرفتش أفهم طلبك بشكل واضح، ممكن توضح طلبك أكتر؟"
       });
     }
 
     let action = ALLOWED_ACTIONS.includes(plan?.action) ? plan.action : "unknown";
-    let matchedSite = null;
+    if (action === "build_site") action = "write_files";
 
+    let matchedSite = null;
     let filePath = "";
     let fileContent = "";
     let files = [];
 
     if (action === "diagnose" || action === "list_files" || action === "write_file" || action === "write_files") {
       if (sites.length === 1) {
-        // عنده موقع واحد بس - مفيش داعي نعتمد على الموديل يكتب الاسم بالظبط
         matchedSite = sites[0];
       } else {
         const requestedName = String(plan?.site_name || "").trim().toLowerCase();
@@ -367,7 +375,7 @@ ${sitesListText}
             requestedName.includes(s.name.trim().toLowerCase())
             || s.name.trim().toLowerCase().includes(requestedName)
           ))
-          || null;
+          || sites[0] || null;
       }
 
       if (!matchedSite) {
@@ -388,25 +396,36 @@ ${sitesListText}
 
         files = rawFiles
           .map((f) => ({
-            file_path: String(f?.file_path || "").trim(),
-            file_content: typeof f?.file_content === "string" ? f.file_content : ""
+            path: String(f?.file_path || f?.path || "").trim(),
+            content: typeof f?.file_content === "string" ? f.file_content : (typeof f?.content === "string" ? f.content : "")
           }))
-          .filter((f) => f.file_path && f.file_content && !f.file_path.split("/").includes(".."));
+          .filter((f) => f.path && f.content && !f.path.split("/").includes(".."));
 
         if (files.length === 0) {
           action = "unknown";
+        } else {
+          // Auto-fix and validate generated files automatically
+          const autofixResult = autoFixWebsiteManifest(files);
+          files = autofixResult.fixedFiles.map((f) => ({
+            file_path: f.path,
+            file_content: f.content
+          }));
         }
       }
     }
+
+    const validationSummary = files.length > 0 ? validateWebsiteManifest(files.map(f => ({ path: f.file_path, content: f.file_content }))) : null;
 
     return Response.json({
       success: true,
       action,
       site: matchedSite ? { id: matchedSite.id, name: matchedSite.name, hostname: matchedSite.check_url } : null,
+      blueprint: plan?.blueprint || null,
       file_path: action === "write_file" ? filePath : null,
       file_content: action === "write_file" ? fileContent : null,
       files: action === "write_files" ? files : null,
-      explanation: String(plan?.explanation || "").trim() || "تمام، جاهز أنفّذ."
+      validation: validationSummary,
+      explanation: String(plan?.explanation || "").trim() || "تمام، جاهز أنفّذ لك خطة الموقع."
     });
   } catch (error) {
     return Response.json(

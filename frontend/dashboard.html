@@ -2784,6 +2784,19 @@ async function sendChatMessage() {
       };
       thinkingBubble.textContent = data.explanation;
 
+      if (data.blueprint) {
+        const bp = data.blueprint;
+        thinkingBubble.textContent += `\n\n🎯 استراتيجية المشروع: ${bp.title || "مشروع جديد"}\n🏷️ التصنيف والجمهور: ${bp.category || "General"} | ${bp.target_market || "US/UK"}\n💡 الخطة: ${bp.strategy || "بناء صفحات متكاملة"}`;
+      }
+
+      if (data.validation) {
+        const v = data.validation;
+        thinkingBubble.textContent += `\n\n📊 الفحص الآلي: النتيجة ${v.score}/100 (${v.status})`;
+        if (v.warnings && v.warnings.length > 0) {
+          thinkingBubble.textContent += ` | تم تدقيق ${v.warnings.length} ملاحظات وإصلاحها تلقائيًا.`;
+        }
+      }
+
       if (data.action === "write_file") {
         const preview = (data.file_content || "").slice(0, 300);
         const truncated = (data.file_content || "").length > 300 ? "\n...(مقتطع)" : "";
@@ -2792,12 +2805,12 @@ async function sendChatMessage() {
 
       if (data.action === "write_files") {
         const filesList = (data.files || []).map((f, idx) => {
-          const preview = (f.file_content || "").slice(0, 150);
-          const truncated = (f.file_content || "").length > 150 ? "...(مقتطع)" : "";
+          const preview = (f.file_content || "").slice(0, 120);
+          const truncated = (f.file_content || "").length > 120 ? "...(مقتطع)" : "";
           return `📄 ${idx + 1}. ${f.file_path}\n${preview}${truncated}`;
         }).join("\n\n");
 
-        thinkingBubble.textContent += `\n\nهيتم إنشاء ${data.files.length} ملفات على السيرفر:\n\n${filesList}`;
+        thinkingBubble.textContent += `\n\nحزمة الموقع الجاهزة (${data.files.length} ملفات):\n\n${filesList}`;
       }
 
       const confirmWrap = document.createElement("div");
@@ -3131,75 +3144,58 @@ async function chatWriteFiles(siteId, files, resultBubble) {
     return;
   }
 
-  const summary = [];
-  let successCount = 0;
-  let failCount = 0;
+  resultBubble.textContent = `🚀 جاري تشغيل الحزمة المجمعة (Batch Write) لعدد ${files.length} ملفات دفعة واحدة...`;
 
-  for (let i = 0; i < files.length; i++) {
-    const f = files[i];
-    resultBubble.textContent =
-      `⏳ جاري كتابة الملف ${i + 1} من ${files.length}: ${f.file_path}...\n\n` + summary.join("\n");
+  try {
+    const formattedFiles = files.map(f => ({
+      path: f.file_path || f.path,
+      content: f.file_content || f.content
+    }));
 
-    try {
-      const createResponse = await fetch("/api/sites/write", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({ id: siteId, path: f.file_path, content: f.file_content, overwrite: false })
-      });
+    const batchRes = await fetch("/api/sites/write-batch", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify({ id: siteId, files: formattedFiles, overwrite: true })
+    });
 
-      const createData = await createResponse.json();
+    const batchData = await batchRes.json();
 
-      if (!createResponse.ok) {
-        summary.push(`❌ ${f.file_path}: ${createData.error || "فشل إنشاء طلب الكتابة"}`);
-        failCount++;
-        continue;
-      }
-
-      const requestId = createData.request_id;
-
-      const startResponse = await fetch("/api/sites/write/start", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({ request_id: requestId })
-      });
-
-      const startData = await startResponse.json();
-
-      if (!startResponse.ok) {
-        summary.push(`❌ ${f.file_path}: ${startData.error || "فشل تشغيل الكتابة"}`);
-        failCount++;
-        continue;
-      }
-
-      await new Promise((r) => setTimeout(r, 8000));
-      const outcome = await waitChatWriteResult(requestId, token, 0);
-
-      if (outcome.status === "completed") {
-        summary.push(`✅ ${f.file_path}`);
-        successCount++;
-      } else if (outcome.status === "needs_confirmation") {
-        summary.push(`⚠️ ${f.file_path}: موجود بالفعل، محتاج تأكيد استبدال يدوي من قسم الملفات`);
-        failCount++;
-      } else {
-        summary.push(`❌ ${f.file_path}: ${outcome.error || "فشلت الكتابة"}`);
-        failCount++;
-      }
-    } catch {
-      summary.push(`❌ ${f.file_path}: Network error`);
-      failCount++;
+    if (!batchRes.ok || !batchData.success) {
+      resultBubble.textContent = "❌ " + (batchData.error || "فشل إعداد الحزمة المجمعة");
+      return;
     }
 
-    resultBubble.textContent = summary.join("\n");
-  }
+    const requestId = batchData.request_id;
+    resultBubble.textContent = `⚡ تم تجهيز الحزمة (ID: ${requestId.slice(0, 8)}...)، جاري الإرسال للتنفيذ الآمن...`;
 
-  resultBubble.textContent =
-    `✅ اكتمل: ${successCount} نجح، ${failCount} فشل من أصل ${files.length}\n\n` + summary.join("\n");
+    const startRes = await fetch("/api/sites/write-batch/start", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify({ request_id: requestId })
+    });
+
+    const startData = await startRes.json();
+
+    if (!startRes.ok || !startData.success) {
+      resultBubble.textContent = "❌ " + (startData.error || "فشل تشغيل سير عمل الكتابة المجمعة");
+      return;
+    }
+
+    resultBubble.textContent = `⏳ سير العمل شغال على السيرفر لبناء وتثبيت ${files.length} ملفات بشكل متكامل... جاري متابعة الحالة.`;
+
+    setTimeout(() => {
+      pollChatWriteResult(requestId, token, resultBubble, 0);
+    }, 6000);
+
+  } catch {
+    resultBubble.textContent = "❌ Network error: تعذر إرسال الحزمة المجمعة";
+  }
 }
 
 
