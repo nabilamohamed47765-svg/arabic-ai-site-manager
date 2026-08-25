@@ -1099,11 +1099,17 @@ async function loadSites(isAutoRefresh) {
   const savedAiBox =
     document.getElementById("aiDiagnosisResult");
 
+  const savedReadFilesBox =
+    document.getElementById("readFilesResult");
+
   const savedHealthHtml =
     savedHealthBox ? savedHealthBox.innerHTML : "";
 
   const savedAiHtml =
     savedAiBox ? savedAiBox.innerHTML : "";
+
+  const savedReadFilesHtml =
+    savedReadFilesBox ? savedReadFilesBox.innerHTML : "";
 
 
   if (!isAutoRefresh) {
@@ -1305,6 +1311,13 @@ async function loadSites(isAutoRefresh) {
 
     if (newAiBox && savedAiHtml) {
       newAiBox.innerHTML = savedAiHtml;
+    }
+
+    const newReadFilesBox =
+      document.getElementById("readFilesResult");
+
+    if (newReadFilesBox && savedReadFilesHtml) {
+      newReadFilesBox.innerHTML = savedReadFilesHtml;
     }
 
 
@@ -1997,6 +2010,7 @@ async function readFiles(siteId) {
       if (resultDiv) {
         resultDiv.textContent = "❌ " + (createData.error || "فشل إنشاء طلب القراءة");
       }
+      operationInProgress = false;
       return;
     }
 
@@ -2017,6 +2031,7 @@ async function readFiles(siteId) {
       if (resultDiv) {
         resultDiv.textContent = "❌ " + (startData.error || "فشل تشغيل القراءة");
       }
+      operationInProgress = false;
       return;
     }
 
