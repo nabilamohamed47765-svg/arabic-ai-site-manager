@@ -1,0 +1,303 @@
+name: SSH Git Status
+
+on:
+  workflow_dispatch:
+    inputs:
+      request_id:
+        description: "Git Status Request ID"
+        required: true
+        type: string
+
+jobs:
+  ssh-git-status:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install SSH tools
+        run: |
+          set -e
+          sudo apt-get update
+          sudo apt-get install -y openssh-client sshpass
+          npm install --global wrangler@latest
+
+      - name: Validate request ID
+        env:
+          REQUEST_ID: ${{ inputs.request_id }}
+        run: |
+          set -e
+          if [[ ! "$REQUEST_ID" =~ ^[A-Za-z0-9_-]{20,100}$ ]]; then
+            echo "Invalid request_id"
+            exit 1
+          fi
+
+      - name: Read request from D1
+        id: request
+        env:
+          REQUEST_ID: ${{ inputs.request_id }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -e
+
+          python3 <<'PY'
+          import os
+          import subprocess
+          import json
+          from datetime import datetime, timezone
+
+          request_id = os.environ["REQUEST_ID"]
+
+          def sql_escape(value):
+              return value.replace("'", "''")
+
+          sql = f"""
+          SELECT
+            r.id,
+            r.status,
+            r.operation,
+            r.target_path,
+            r.site_id,
+            r.user_id,
+            r.expires_at,
+            s.hostname,
+            s.port,
+            s.username,
+            s.ssh_password_ciphertext,
+            s.ssh_password_iv
+          FROM ssh_requests r
+          JOIN sites s
+            ON s.id = r.site_id
+          WHERE r.id = '{sql_escape(request_id)}'
+          LIMIT 1
+          """
+
+          result = subprocess.run(
+              ["wrangler", "d1", "execute", "DB", "--remote", "--json", "--command", sql],
+              capture_output=True, text=True, check=False
+          )
+
+          if result.returncode != 0:
+              print(result.stderr)
+              raise SystemExit(result.returncode)
+
+          data = json.loads(result.stdout)
+          rows = []
+
+          for item in data:
+              if isinstance(item, dict) and "results" in item:
+                  rows.extend(item["results"])
+
+          if not rows:
+              raise SystemExit("Git status request not found")
+
+          row = rows[0]
+
+          required = ["hostname", "port", "username", "ssh_password_ciphertext", "ssh_password_iv", "target_path"]
+
+          for field in required:
+              if not row.get(field):
+                  raise SystemExit(f"Missing field: {field}")
+
+          if row.get("status") not in ["pending", "running"]:
+              raise SystemExit("Invalid request status: " + str(row.get("status")))
+
+          if row.get("operation") != "git_status":
+              raise SystemExit("Unsupported operation: " + str(row.get("operation")))
+
+          if row.get("expires_at"):
+              expires = datetime.fromisoformat(row["expires_at"].replace("Z", "+00:00"))
+
+              if expires < datetime.now(timezone.utc):
+                  raise SystemExit("Request expired")
+
+          target_path = str(row["target_path"])
+
+          if ".." in target_path.split("/"):
+              raise SystemExit("Unsafe target_path rejected")
+
+          output = {
+              "hostname": str(row["hostname"]),
+              "port": str(int(row["port"])),
+              "username": str(row["username"]),
+              "ciphertext": str(row["ssh_password_ciphertext"]),
+              "iv": str(row["ssh_password_iv"]),
+              "target_path": target_path
+          }
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+              for key, value in output.items():
+                  f.write(f"{key}<<EOF\n{value}\nEOF\n")
+
+          print("Git status request loaded successfully.")
+          PY
+
+      - name: Decrypt SSH password
+        id: decrypt
+        env:
+          SSH_ENCRYPTION_KEY: ${{ secrets.SSH_ENCRYPTION_KEY }}
+          SSH_CIPHERTEXT: ${{ steps.request.outputs.ciphertext }}
+          SSH_IV: ${{ steps.request.outputs.iv }}
+        run: |
+          set -e
+
+          node <<'NODE'
+          const crypto = require("crypto");
+          const fs = require("fs");
+
+          const secret = process.env.SSH_ENCRYPTION_KEY;
+          const ciphertext = Buffer.from(process.env.SSH_CIPHERTEXT, "base64");
+          const iv = Buffer.from(process.env.SSH_IV, "base64");
+
+          const key = crypto.createHash("sha256").update(secret, "utf8").digest();
+          const tagLength = 16;
+
+          const encrypted = ciphertext.subarray(0, ciphertext.length - tagLength);
+          const authTag = ciphertext.subarray(ciphertext.length - tagLength);
+
+          const decipher = crypto.createDecipheriv(`aes-${key.length * 8}-gcm`, key, iv);
+          decipher.setAuthTag(authTag);
+
+          const password = Buffer.concat([decipher.update(encrypted), decipher.final()]).toString("utf8");
+
+          if (!password) {
+            throw new Error("SSH password is empty");
+          }
+
+          console.log("::add-mask::" + password);
+
+          fs.appendFileSync(process.env.GITHUB_ENV, `SSHPASS=${password}\n`, { encoding: "utf8" });
+          NODE
+
+      - name: Run remote git status (read-only)
+        id: ssh
+        env:
+          SSHPASS: ${{ env.SSHPASS }}
+          SSH_HOST: ${{ steps.request.outputs.hostname }}
+          SSH_PORT: ${{ steps.request.outputs.port }}
+          SSH_USER: ${{ steps.request.outputs.username }}
+          TARGET_PATH: ${{ steps.request.outputs.target_path }}
+        run: |
+          set +e
+
+          REMOTE_CMD="cd $(printf '%q' "$TARGET_PATH") && echo '===IS_GIT_REPO===' && git rev-parse --is-inside-work-tree && echo '===STATUS===' && git status --short --branch && echo '===REMOTE===' && git remote -v"
+
+          OUTPUT=$(
+            sshpass -e ssh \
+              -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=20 \
+              -o ConnectionAttempts=1 \
+              -p "$SSH_PORT" \
+              "$SSH_USER@$SSH_HOST" \
+              "$REMOTE_CMD" \
+              2>&1
+          )
+
+          EXIT_CODE=$?
+
+          echo "exit_code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
+
+          echo "$OUTPUT" > /tmp/ssh_output.txt
+
+          echo "---- تفاصيل نتيجة فحص Git ----"
+          echo "exit code: $EXIT_CODE"
+          echo "$OUTPUT"
+          echo "-------------------------------"
+
+          if [ "$EXIT_CODE" -eq 0 ]; then
+            echo "result=success" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "result=failure" >> "$GITHUB_OUTPUT"
+          exit 1
+
+      - name: Save successful result in D1
+        if: success()
+        env:
+          REQUEST_ID: ${{ inputs.request_id }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -e
+
+          python3 <<'PY'
+          import os
+          import subprocess
+
+          request_id = os.environ["REQUEST_ID"]
+
+          def sql_escape(value):
+              return value.replace("'", "''")
+
+          with open("/tmp/ssh_output.txt", "r", encoding="utf-8", errors="replace") as f:
+              output_text = f.read()[:4000]
+
+          sql = f"""
+          UPDATE ssh_requests
+          SET
+            status = 'completed',
+            output = '{sql_escape(output_text)}',
+            error = NULL,
+            completed_at = CURRENT_TIMESTAMP
+          WHERE id = '{sql_escape(request_id)}'
+          """
+
+          subprocess.run(
+              ["wrangler", "d1", "execute", "DB", "--remote", "--command", sql],
+              check=True
+          )
+
+          print("Git status result saved.")
+          PY
+
+      - name: Save failed result in D1
+        if: failure()
+        env:
+          REQUEST_ID: ${{ inputs.request_id }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -e
+
+          python3 <<'PY'
+          import os
+          import subprocess
+
+          request_id = os.environ["REQUEST_ID"]
+
+          def sql_escape(value):
+              return value.replace("'", "''")
+
+          try:
+              with open("/tmp/ssh_output.txt", "r", encoding="utf-8", errors="replace") as f:
+                  output_text = f.read()[:2000]
+          except FileNotFoundError:
+              output_text = ""
+
+          sql = f"""
+          UPDATE ssh_requests
+          SET
+            status = 'failed',
+            output = NULL,
+            error = '{sql_escape("فشل فحص Git (قد لا يكون فيه Git repo في هذا المسار): " + output_text)}',
+            completed_at = CURRENT_TIMESTAMP
+          WHERE id = '{sql_escape(request_id)}'
+          """
+
+          subprocess.run(
+              ["wrangler", "d1", "execute", "DB", "--remote", "--command", sql],
+              check=True
+          )
+
+          print("Failure result saved.")
+          PY
