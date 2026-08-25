@@ -204,6 +204,33 @@ jobs:
         run: |
           set +e
 
+          DIR_PATH=$(dirname -- "$TARGET_PATH")
+
+          MKDIR_OUTPUT=$(
+            sshpass -e ssh \
+              -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=20 \
+              -o ConnectionAttempts=1 \
+              -p "$SSH_PORT" \
+              "$SSH_USER@$SSH_HOST" \
+              "mkdir -p -- $(printf '%q' "$DIR_PATH")" \
+              2>&1
+          )
+          MKDIR_EXIT=$?
+
+          echo "---- إنشاء المجلد الأب (لو مش موجود) ----"
+          echo "المجلد: $DIR_PATH"
+          echo "$MKDIR_OUTPUT"
+          echo "-------------------------------------------"
+
+          if [ "$MKDIR_EXIT" -ne 0 ]; then
+            echo "needs_confirmation=false" >> "$GITHUB_OUTPUT"
+            echo "backup_needed=false" >> "$GITHUB_OUTPUT"
+            echo "فشل إنشاء المجلد $DIR_PATH: $MKDIR_OUTPUT" > /tmp/ssh_output.txt
+            echo "result=failure" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
           EXISTS_CHECK=$(
             sshpass -e ssh \
               -o StrictHostKeyChecking=accept-new \
