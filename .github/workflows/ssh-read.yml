@@ -206,6 +206,11 @@ jobs:
 
           echo "$OUTPUT" > /tmp/ssh_output.txt
 
+          echo "---- تفاصيل نتيجة أمر SSH ----"
+          echo "exit code: $EXIT_CODE"
+          echo "$OUTPUT"
+          echo "-------------------------------"
+
           if [ "$EXIT_CODE" -eq 0 ]; then
             echo "result=success" >> "$GITHUB_OUTPUT"
             exit 0
