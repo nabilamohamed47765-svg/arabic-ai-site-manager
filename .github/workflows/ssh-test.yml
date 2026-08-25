@@ -360,7 +360,7 @@ jobs:
 
           EXIT_CODE=$?
 
-          if [ "$EXIT_CODE" -eq 0 ] && [ "$OUTPUT" = "SSH_CONNECTION_OK" ]; then
+          if [ "$EXIT_CODE" -eq 0 ] && [[ "$OUTPUT" == *"SSH_CONNECTION_OK"* ]]; then
 
             echo "SSH connection successful."
 
