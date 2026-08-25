@@ -209,7 +209,7 @@ jobs:
               -o ConnectionAttempts=1 \
               -p "$SSH_PORT" \
               "$SSH_USER@$SSH_HOST" \
-              "test -f -- $(printf '%q' "$TARGET_PATH") && echo __EXISTS__ || echo __MISSING__" \
+              "if [ -f $(printf '%q' "$TARGET_PATH") ]; then echo __EXISTS__; else echo __MISSING__; fi" \
               2>&1
           )
 
@@ -225,6 +225,10 @@ jobs:
           fi
 
           echo "needs_confirmation=false" >> "$GITHUB_OUTPUT"
+
+          CONTENT_BYTES=$(wc -c < /tmp/write_content.txt)
+          echo "content_bytes=$CONTENT_BYTES" >> "$GITHUB_OUTPUT"
+          echo "محتوى الملف المستلم: $CONTENT_BYTES بايت"
 
           WRITE_OUTPUT=$(
             sshpass -e ssh \
@@ -242,6 +246,26 @@ jobs:
 
           echo "exit_code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
           echo "$WRITE_OUTPUT" > /tmp/ssh_output.txt
+
+          if [ "$EXIT_CODE" -eq 0 ]; then
+            VERIFY_OUTPUT=$(
+              sshpass -e ssh \
+                -o StrictHostKeyChecking=accept-new \
+                -o ConnectTimeout=20 \
+                -o ConnectionAttempts=1 \
+                -p "$SSH_PORT" \
+                "$SSH_USER@$SSH_HOST" \
+                "wc -c < $(printf '%q' "$TARGET_PATH")" \
+                2>&1
+            )
+            VERIFY_EXIT=$?
+            VERIFY_BYTES=$(printf '%s' "$VERIFY_OUTPUT" | tr -d '[:space:]')
+            echo "verify_bytes=$VERIFY_BYTES" >> "$GITHUB_OUTPUT"
+            if [ "$VERIFY_EXIT" -ne 0 ] || ! [[ "$VERIFY_BYTES" =~ ^[0-9]+$ ]] || [ "$VERIFY_BYTES" -ne "$CONTENT_BYTES" ]; then
+              EXIT_CODE=1
+              echo "فشل التحقق: حجم الملف على السيرفر ($VERIFY_BYTES) لا يطابق المحتوى المرسل ($CONTENT_BYTES)." > /tmp/ssh_output.txt
+            fi
+          fi
 
           echo "---- تفاصيل نتيجة كتابة الملف ----"
           echo "exit code: $EXIT_CODE"
