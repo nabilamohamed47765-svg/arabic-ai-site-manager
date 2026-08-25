@@ -918,6 +918,47 @@ async function loadUser() {
 
 
 
+async function runHealthCheck(hostname) {
+  const box = document.getElementById("healthCheckResult");
+  box.innerHTML = "⏳ جاري الفحص...";
+
+  try {
+    const response = await fetch("/api/health-check-all", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hostname })
+    });
+
+    const data = await response.json();
+
+    if (!data.success) {
+      box.innerHTML = `❌ ${escapeHtml(data.error || "فشل الفحص")}`;
+      return;
+    }
+
+    const httpLine = data.http.reachable
+      ? `🟢 HTTP: يستجيب (${data.http.status_code}) - ${data.http.response_time_ms}ms`
+      : `🔴 HTTP: لا يستجيب`;
+
+    const dnsLine = data.dns.resolved
+      ? `🟢 DNS: يعمل (${data.dns.records[0]?.data || ""})`
+      : `🔴 DNS: فشل`;
+
+    const tlsLine = data.tls.https_ok
+      ? `🟢 TLS: شهادة سليمة`
+      : `🔴 TLS: ${escapeHtml(data.tls.error || "مشكلة")}`;
+
+    box.innerHTML = `
+      <div class="badge">${httpLine}</div>
+      <div class="badge">${dnsLine}</div>
+      <div class="badge">${tlsLine}</div>
+    `;
+  } catch (error) {
+    box.innerHTML = "❌ تعذر إجراء الفحص";
+  }
+}
+
+
 function getSSHStatus(
   site
 ) {
@@ -1109,6 +1150,7 @@ async function loadSites() {
 
         ${getSSHStatus(site)}
 
+        <div id="healthCheckResult"></div>
 
         <div class="site-actions">
 
@@ -1121,6 +1163,15 @@ async function loadSites() {
             )">
 
             🔌 اختبار اتصال SSH
+
+          </button>
+
+
+          <button
+            class="ssh-test-button"
+            onclick="runHealthCheck('${escapeHtml(site.hostname)}')">
+
+            🩺 فحص الموقع
 
           </button>
 
