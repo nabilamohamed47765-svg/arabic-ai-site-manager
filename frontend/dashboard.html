@@ -2773,13 +2773,14 @@ async function sendChatMessage() {
       return;
     }
 
-    if ((data.action === "diagnose" || data.action === "list_files" || data.action === "write_file") && data.site) {
+    if ((data.action === "diagnose" || data.action === "list_files" || data.action === "write_file" || data.action === "write_files") && data.site) {
       pendingChatPlan = {
         action: data.action,
         hostname: data.site.hostname,
         siteId: data.site.id,
         filePath: data.file_path || "",
-        fileContent: data.file_content || ""
+        fileContent: data.file_content || "",
+        files: Array.isArray(data.files) ? data.files : []
       };
       thinkingBubble.textContent = data.explanation;
 
@@ -2787,6 +2788,16 @@ async function sendChatMessage() {
         const preview = (data.file_content || "").slice(0, 300);
         const truncated = (data.file_content || "").length > 300 ? "\n...(مقتطع)" : "";
         thinkingBubble.textContent += `\n\n📄 الملف: ${data.file_path}\n--- المحتوى ---\n${preview}${truncated}`;
+      }
+
+      if (data.action === "write_files") {
+        const filesList = (data.files || []).map((f, idx) => {
+          const preview = (f.file_content || "").slice(0, 150);
+          const truncated = (f.file_content || "").length > 150 ? "...(مقتطع)" : "";
+          return `📄 ${idx + 1}. ${f.file_path}\n${preview}${truncated}`;
+        }).join("\n\n");
+
+        thinkingBubble.textContent += `\n\nهيتم إنشاء ${data.files.length} ملفات على السيرفر:\n\n${filesList}`;
       }
 
       const confirmWrap = document.createElement("div");
@@ -2857,6 +2868,8 @@ async function executeChatPlan(confirmWrap) {
     await chatListFiles(plan.siteId, resultBubble);
   } else if (plan.action === "write_file") {
     await chatWriteFile(plan.siteId, plan.filePath, plan.fileContent, resultBubble);
+  } else if (plan.action === "write_files") {
+    await chatWriteFiles(plan.siteId, plan.files, resultBubble);
   }
 }
 
@@ -3065,6 +3078,128 @@ async function pollChatWriteResult(requestId, token, resultBubble, attempt) {
   } catch {
     resultBubble.textContent = "❌ Network error أثناء جلب النتيجة";
   }
+}
+
+
+function waitChatWriteResult(requestId, token, attempt) {
+  return new Promise((resolve) => {
+    async function attemptCheck(n) {
+      try {
+        const resultResponse = await fetch(
+          `/api/sites/read/result?id=${requestId}`,
+          { headers: { "Authorization": `Bearer ${token}` } }
+        );
+
+        const resultData = await resultResponse.json();
+
+        if (!resultResponse.ok || !resultData.success) {
+          resolve({ status: "failed", error: resultData.error || "تعذر جلب النتيجة" });
+          return;
+        }
+
+        if (resultData.status === "completed" || resultData.status === "needs_confirmation" || resultData.status === "failed") {
+          resolve(resultData);
+          return;
+        }
+
+        if (n >= 14) {
+          resolve({ status: "failed", error: "العملية طوّلت أكتر من المتوقع" });
+          return;
+        }
+
+        setTimeout(() => attemptCheck(n + 1), 5000);
+      } catch {
+        resolve({ status: "failed", error: "Network error أثناء جلب النتيجة" });
+      }
+    }
+
+    attemptCheck(attempt);
+  });
+}
+
+
+async function chatWriteFiles(siteId, files, resultBubble) {
+  const token = getToken();
+
+  if (!token) {
+    window.location.href = "/test-auth.html";
+    return;
+  }
+
+  if (!Array.isArray(files) || files.length === 0) {
+    resultBubble.textContent = "❌ مفيش ملفات في الخطة دي";
+    return;
+  }
+
+  const summary = [];
+  let successCount = 0;
+  let failCount = 0;
+
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i];
+    resultBubble.textContent =
+      `⏳ جاري كتابة الملف ${i + 1} من ${files.length}: ${f.file_path}...\n\n` + summary.join("\n");
+
+    try {
+      const createResponse = await fetch("/api/sites/write", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ id: siteId, path: f.file_path, content: f.file_content, overwrite: false })
+      });
+
+      const createData = await createResponse.json();
+
+      if (!createResponse.ok) {
+        summary.push(`❌ ${f.file_path}: ${createData.error || "فشل إنشاء طلب الكتابة"}`);
+        failCount++;
+        continue;
+      }
+
+      const requestId = createData.request_id;
+
+      const startResponse = await fetch("/api/sites/write/start", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ request_id: requestId })
+      });
+
+      const startData = await startResponse.json();
+
+      if (!startResponse.ok) {
+        summary.push(`❌ ${f.file_path}: ${startData.error || "فشل تشغيل الكتابة"}`);
+        failCount++;
+        continue;
+      }
+
+      await new Promise((r) => setTimeout(r, 8000));
+      const outcome = await waitChatWriteResult(requestId, token, 0);
+
+      if (outcome.status === "completed") {
+        summary.push(`✅ ${f.file_path}`);
+        successCount++;
+      } else if (outcome.status === "needs_confirmation") {
+        summary.push(`⚠️ ${f.file_path}: موجود بالفعل، محتاج تأكيد استبدال يدوي من قسم الملفات`);
+        failCount++;
+      } else {
+        summary.push(`❌ ${f.file_path}: ${outcome.error || "فشلت الكتابة"}`);
+        failCount++;
+      }
+    } catch {
+      summary.push(`❌ ${f.file_path}: Network error`);
+      failCount++;
+    }
+
+    resultBubble.textContent = summary.join("\n");
+  }
+
+  resultBubble.textContent =
+    `✅ اكتمل: ${successCount} نجح، ${failCount} فشل من أصل ${files.length}\n\n` + summary.join("\n");
 }
 
 
