@@ -1208,6 +1208,9 @@ async function loadSites(isAutoRefresh) {
   const savedWriteFilesBox =
     document.getElementById("writeFilesResult");
 
+  const savedBackupsBox =
+    document.getElementById("backupsResult");
+
   const savedHealthHtml =
     savedHealthBox ? savedHealthBox.innerHTML : "";
 
@@ -1219,6 +1222,9 @@ async function loadSites(isAutoRefresh) {
 
   const savedWriteFilesHtml =
     savedWriteFilesBox ? savedWriteFilesBox.innerHTML : "";
+
+  const savedBackupsHtml =
+    savedBackupsBox ? savedBackupsBox.innerHTML : "";
 
 
   if (!isAutoRefresh) {
@@ -1349,6 +1355,8 @@ async function loadSites(isAutoRefresh) {
 
         <div id="writeFilesResult"></div>
 
+        <div id="backupsResult"></div>
+
         <div class="site-actions">
 
 
@@ -1401,6 +1409,15 @@ async function loadSites(isAutoRefresh) {
 
 
           <button
+            class="ssh-test-button"
+            onclick="loadBackups('${escapeHtml(site.id)}')">
+
+            📦 النسخ الاحتياطية
+
+          </button>
+
+
+          <button
             class="delete-button"
             onclick="deleteSite(
               '${escapeHtml(site.id)}'
@@ -1445,6 +1462,13 @@ async function loadSites(isAutoRefresh) {
 
     if (newWriteFilesBox && savedWriteFilesHtml) {
       newWriteFilesBox.innerHTML = savedWriteFilesHtml;
+    }
+
+    const newBackupsBox =
+      document.getElementById("backupsResult");
+
+    if (newBackupsBox && savedBackupsHtml) {
+      newBackupsBox.innerHTML = savedBackupsHtml;
     }
 
 
@@ -2486,6 +2510,116 @@ async function pollWriteResult(requestId, token, resultDiv, siteId, path, conten
       resultDiv.textContent = "❌ Network error أثناء جلب النتيجة";
     }
     operationInProgress = false;
+  }
+}
+
+
+async function loadBackups(siteId) {
+
+  const token = getToken();
+
+  if (!token) {
+    window.location.href = "/test-auth.html";
+    return;
+  }
+
+  const resultDiv = document.getElementById("backupsResult");
+
+  if (resultDiv) {
+    resultDiv.textContent = "⏳ جاري تحميل النسخ الاحتياطية...";
+  }
+
+  try {
+
+    const response = await fetch(
+      `/api/sites/backups?site_id=${encodeURIComponent(siteId)}`,
+      { headers: { "Authorization": `Bearer ${token}` } }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+      if (resultDiv) {
+        resultDiv.textContent = "❌ " + (data.error || "تعذر تحميل النسخ الاحتياطية");
+      }
+      return;
+    }
+
+    const backups = data.backups || [];
+
+    if (backups.length === 0) {
+      if (resultDiv) {
+        resultDiv.innerHTML = "<strong>📦 النسخ الاحتياطية</strong><br>لا يوجد نسخ محفوظة حتى الآن.";
+      }
+      return;
+    }
+
+    const itemsHtml = backups.map((b) => {
+      return `<div class="backup-item" style="margin-top:8px;">
+        <button
+          class="ssh-test-button"
+          onclick="viewBackup('${escapeHtml(b.id)}')">
+          🕒 ${escapeHtml(b.created_at || "")} — ${escapeHtml(b.file_path || "")}
+        </button>
+      </div>`;
+    }).join("");
+
+    if (resultDiv) {
+      resultDiv.innerHTML = "<strong>📦 آخر النسخ الاحتياطية</strong>" + itemsHtml;
+    }
+
+  } catch (error) {
+    if (resultDiv) {
+      resultDiv.textContent = "❌ Network error: تعذر تحميل النسخ الاحتياطية";
+    }
+  }
+}
+
+
+async function viewBackup(backupId) {
+
+  const token = getToken();
+
+  if (!token) {
+    window.location.href = "/test-auth.html";
+    return;
+  }
+
+  const resultDiv = document.getElementById("backupsResult");
+
+  if (resultDiv) {
+    resultDiv.textContent = "⏳ جاري تحميل محتوى النسخة...";
+  }
+
+  try {
+
+    const response = await fetch(
+      `/api/sites/backups?id=${encodeURIComponent(backupId)}`,
+      { headers: { "Authorization": `Bearer ${token}` } }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+      if (resultDiv) {
+        resultDiv.textContent = "❌ " + (data.error || "تعذر تحميل النسخة");
+      }
+      return;
+    }
+
+    const backup = data.backup;
+
+    if (resultDiv) {
+      resultDiv.innerHTML =
+        "<strong>📦 " + escapeHtml(backup.file_path) + "</strong><br>" +
+        "<span style=\"opacity:0.7;\">" + escapeHtml(backup.created_at || "") + "</span>" +
+        "<pre>" + escapeHtml(backup.content || "") + "</pre>";
+    }
+
+  } catch (error) {
+    if (resultDiv) {
+      resultDiv.textContent = "❌ Network error: تعذر تحميل النسخة";
+    }
   }
 }
 
