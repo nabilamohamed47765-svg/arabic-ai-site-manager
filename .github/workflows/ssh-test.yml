@@ -252,18 +252,14 @@ jobs:
             );
 
           const key =
-            Buffer.from(
-              secret,
-              "utf8"
-            );
+            crypto
+              .createHash("sha256")
+              .update(secret, "utf8")
+              .digest();
 
-          if (
-            key.length !== 16 &&
-            key.length !== 24 &&
-            key.length !== 32
-          ) {
+          if (key.length !== 32) {
             throw new Error(
-              "SSH_ENCRYPTION_KEY must be exactly 16, 24, or 32 bytes"
+              "Unexpected derived key length"
             );
           }
 
