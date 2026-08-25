@@ -161,7 +161,7 @@ export async function onRequestPost(context) {
     // جيب مواقع المستخدم عشان الـ AI يعرف يربط الرسالة بموقع فعلي
     const sitesResult = await context.env.DB
       .prepare(`
-        SELECT id, name, hostname
+        SELECT id, name, hostname, public_url
         FROM sites
         WHERE user_id = ?
         ORDER BY created_at DESC
@@ -169,7 +169,10 @@ export async function onRequestPost(context) {
       .bind(user.sub)
       .all();
 
-    const sites = sitesResult.results || [];
+    const sites = (sitesResult.results || []).map((s) => ({
+      ...s,
+      check_url: s.public_url || s.hostname
+    }));
 
     if (sites.length === 0) {
       return Response.json({
@@ -217,10 +220,12 @@ export async function onRequestPost(context) {
     }
 
     const sitesListText = sites
-      .map((s) => `- الاسم: "${s.name}" — العنوان: ${s.hostname}`)
+      .map((s) => `- الاسم: "${s.name}" — العنوان: ${s.check_url}`)
       .join("\n");
 
     const prompt = `أنت مساعد داخل تطبيق إدارة مواقع، بتتكلم مع مستخدم غير تقني بالعربي.
+لازم يكون ردك بالكامل باللغة العربية الفصحى البسيطة فقط، ممنوع تستخدم أي حروف لاتينية أو ترجمة صوتية (transliteration).
+
 الإجراءات المتاحة حاليًا للتنفيذ (V1) هي إجراء واحد بس:
 - "diagnose": تشخيص فني تلقائي بالذكاء الاصطناعي لموقع معين (يفحص HTTP/DNS/TLS ويطلع مشكلة محتملة وخطوات).
 
@@ -235,8 +240,8 @@ ${sitesListText}
 رد بصيغة JSON فقط بدون أي نص إضافي، بالشكل ده بالظبط:
 {
   "action": "diagnose" أو "unknown",
-  "site_hostname": "hostname الموقع المختار أو null",
-  "explanation": "شرح قصير وودود بالعربي لخطتك، مثلاً: هعمل تشخيص فني لموقعك (fulan.com) دلوقتي. لو action=unknown يبقى فيه شرح ليه"
+  "site_check_url": "العنوان بالظبط من القائمة فوق أو null",
+  "explanation": "شرح قصير وودود بالعربي الفصيح لخطتك، مثلاً: هعمل تشخيص فني لموقعك (fulan.com) دلوقتي. لو action=unknown يبقى فيه شرح ليه"
 }`;
 
     async function callAi(useJsonFormat) {
@@ -298,8 +303,8 @@ ${sitesListText}
     let action = ALLOWED_ACTIONS.includes(plan?.action) ? plan.action : "unknown";
     let matchedSite = null;
 
-    if (action === "diagnose" && plan?.site_hostname) {
-      matchedSite = sites.find((s) => s.hostname === plan.site_hostname) || null;
+    if (action === "diagnose" && plan?.site_check_url) {
+      matchedSite = sites.find((s) => s.check_url === plan.site_check_url) || null;
 
       if (!matchedSite) {
         action = "unknown";
@@ -309,7 +314,7 @@ ${sitesListText}
     return Response.json({
       success: true,
       action,
-      site: matchedSite ? { id: matchedSite.id, name: matchedSite.name, hostname: matchedSite.hostname } : null,
+      site: matchedSite ? { id: matchedSite.id, name: matchedSite.name, hostname: matchedSite.check_url } : null,
       explanation: String(plan?.explanation || "").trim() || "تمام، جاهز أنفّذ."
     });
   } catch (error) {
