@@ -1,0 +1,6 @@
+{
+  "name": "Arabic AI Site Engineering Platform",
+  "description": "منصة هندسة وإدارة المواقع الذكية المتقدمة عبر SSH بالذكاء الاصطناعي",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

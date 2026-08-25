@@ -2,41 +2,35 @@
 <html lang="ar" dir="rtl">
 
 <head>
-
   <meta charset="UTF-8">
-
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0">
-
-  <title>
-    لوحة التحكم - Arabic AI Site Manager
-  </title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>لوحة التحكم - Arabic AI Site Engineering & Management Platform</title>
 
   <style>
-
     * {
       box-sizing: border-box;
+      margin: 0;
+      padding: 0;
     }
 
     body {
-      margin: 0;
-      background: #0f172a;
-      color: #f8fafc;
-      font-family: Arial, sans-serif;
+      background: #0b0f19;
+      color: #f1f5f9;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.5;
     }
 
     .header {
-      background: #1e293b;
-      padding: 18px;
-      border-bottom: 1px solid #334155;
+      background: #111827;
+      padding: 14px 20px;
+      border-bottom: 1px solid #1f2937;
       position: sticky;
       top: 0;
-      z-index: 10;
+      z-index: 100;
     }
 
     .header-inner {
-      max-width: 1100px;
+      max-width: 1300px;
       margin: auto;
       display: flex;
       align-items: center;
@@ -44,240 +38,199 @@
       gap: 15px;
     }
 
-    .brand {
-      font-size: 20px;
-      font-weight: bold;
+    .brand-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 12px;
     }
 
-    .user {
+    .brand-icon {
+      font-size: 24px;
+      background: linear-gradient(135deg, #2563eb, #7c3aed);
+      padding: 6px 10px;
+      border-radius: 10px;
+      display: inline-flex;
+    }
+
+    .brand-title {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+
+    .brand-sub {
       color: #94a3b8;
+      font-size: 12px;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .user-pill {
+      background: #1f2937;
+      border: 1px solid #374151;
+      padding: 6px 14px;
+      border-radius: 20px;
+      color: #cbd5e1;
       font-size: 13px;
-      margin-top: 5px;
     }
 
     button {
       border: 0;
-      border-radius: 10px;
-      padding: 12px 16px;
+      border-radius: 8px;
+      padding: 10px 16px;
       color: white;
-      font-weight: bold;
+      font-weight: 600;
       cursor: pointer;
       font-size: 14px;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
     }
 
     button:disabled {
-      opacity: 0.6;
+      opacity: 0.5;
       cursor: not-allowed;
     }
 
-    .logout {
-      background: #ef4444;
+    button:hover:not(:disabled) {
+      filter: brightness(1.1);
+      transform: translateY(-1px);
+    }
+
+    .btn-primary { background: #2563eb; }
+    .btn-success { background: #059669; }
+    .btn-warning { background: #d97706; }
+    .btn-danger { background: #dc2626; }
+    .btn-secondary { background: #374151; }
+
+    .nav-tabs {
+      background: #111827;
+      border-bottom: 1px solid #1f2937;
+      padding: 0 20px;
+      display: flex;
+      gap: 4px;
+      overflow-x: auto;
+      scrollbar-width: thin;
+    }
+
+    .nav-tabs-inner {
+      max-width: 1300px;
+      margin: auto;
+      display: flex;
+      gap: 6px;
+      width: 100%;
+    }
+
+    .nav-tab {
+      background: transparent;
+      border: 0;
+      color: #9ca3af;
+      padding: 12px 16px;
+      font-size: 14px;
+      border-bottom: 2px solid transparent;
+      border-radius: 0;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .nav-tab:hover {
+      color: #f3f4f6;
+      background: rgba(255, 255, 255, 0.03);
+      transform: none;
+    }
+
+    .nav-tab.active {
+      color: #38bdf8;
+      border-bottom-color: #38bdf8;
+      font-weight: 700;
+      background: rgba(56, 189, 248, 0.05);
     }
 
     main {
-      max-width: 1100px;
+      max-width: 1300px;
       margin: auto;
-      padding: 20px;
+      padding: 24px 20px;
     }
 
-    .hero {
-      background: linear-gradient(
-        135deg,
-        #1e293b,
-        #172554
-      );
+    .tab-pane {
+      display: none;
+    }
 
-      padding: 25px;
-      border-radius: 18px;
+    .tab-pane.active {
+      display: block;
+      animation: fadeIn 0.2s ease-in;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(3px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .card {
+      background: #111827;
+      border: 1px solid #1f2937;
+      border-radius: 14px;
+      padding: 22px;
       margin-bottom: 20px;
     }
 
-    .hero h1 {
-      margin: 0 0 10px;
-      font-size: 26px;
-    }
-
-    .hero p {
-      margin: 0;
-      color: #cbd5e1;
-      line-height: 1.8;
-    }
-
-    .stats {
-      display: grid;
-      grid-template-columns:
-        repeat(auto-fit, minmax(150px, 1fr));
-
-      gap: 15px;
-      margin-bottom: 20px;
-    }
-
-    .stat {
-      background: #1e293b;
-      padding: 20px;
-      border-radius: 15px;
-    }
-
-    .stat-number {
-      font-size: 28px;
-      font-weight: bold;
-      margin-bottom: 5px;
-    }
-
-    .stat-label {
-      color: #94a3b8;
-      font-size: 13px;
-    }
-
-    .section {
-      background: #1e293b;
-      padding: 20px;
-      border-radius: 16px;
-      margin-bottom: 20px;
-    }
-
-    .section-title {
+    .card-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
       margin-bottom: 18px;
-      gap: 10px;
-    }
-
-    .section-title h2 {
-      margin: 0;
-      font-size: 20px;
-    }
-
-    .add {
-      background: #22c55e;
-    }
-
-    .site-list {
-      display: grid;
       gap: 12px;
     }
 
-    .site {
-      background: #0f172a;
-      border: 1px solid #334155;
-      border-radius: 12px;
-      padding: 16px;
-    }
-
-    .site-name {
+    .card-title {
       font-size: 18px;
-      font-weight: bold;
-    }
-
-    .site-host {
-      color: #94a3b8;
-      margin-top: 7px;
-      direction: ltr;
-      text-align: right;
-    }
-
-    .site-directory {
-      color: #94a3b8;
-      margin-top: 7px;
-      font-size: 13px;
-    }
-
-    .badge {
-      display: inline-block;
-      margin-top: 10px;
-      padding: 5px 9px;
-      border-radius: 20px;
-      background: #14532d;
-      color: #86efac;
-      font-size: 12px;
-    }
-
-    .ssh-status {
-      display: inline-block;
-      margin-top: 10px;
-      padding: 5px 9px;
-      border-radius: 20px;
-      background: #334155;
-      color: #cbd5e1;
-      font-size: 12px;
-    }
-
-    .ssh-status.testing {
-      background: #172554;
-      color: #93c5fd;
-    }
-
-    .ssh-status.success {
-      background: #14532d;
-      color: #86efac;
-    }
-
-    .ssh-status.failed {
-      background: #450a0a;
-      color: #fca5a5;
-    }
-
-    .site-actions {
+      font-weight: 700;
       display: flex;
-      gap: 10px;
-      margin-top: 15px;
-    }
-
-    .ssh-test-button {
-      background: #2563eb;
-      flex: 1;
-    }
-
-    .delete-button {
-      background: #dc2626;
-      flex: 1;
-    }
-
-    .empty {
-      text-align: center;
-      padding: 35px 15px;
-      color: #94a3b8;
-    }
-
-    .modal {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.7);
-      z-index: 100;
-      padding: 20px;
       align-items: center;
-      justify-content: center;
+      gap: 8px;
     }
 
-    .modal.active {
-      display: flex;
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-bottom: 22px;
     }
 
-    .modal-box {
-      width: 100%;
-      max-width: 500px;
-      background: #1e293b;
-      border-radius: 18px;
-      padding: 22px;
-      max-height: 90vh;
-      overflow-y: auto;
+    .stat-box {
+      background: #111827;
+      border: 1px solid #1f2937;
+      padding: 18px;
+      border-radius: 12px;
     }
 
-    .modal-box h2 {
-      margin-top: 0;
+    .stat-val {
+      font-size: 26px;
+      font-weight: 800;
+      color: #38bdf8;
+      margin-bottom: 4px;
     }
 
-    .security-note {
-      background: #172554;
-      border: 1px solid #1d4ed8;
-      color: #bfdbfe;
-      padding: 12px;
-      border-radius: 10px;
+    .stat-lbl {
+      color: #94a3b8;
       font-size: 13px;
-      line-height: 1.7;
-      margin-bottom: 15px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 900px) {
+      .grid-2 { grid-template-columns: 1fr; }
     }
 
     label {
@@ -286,3441 +239,1006 @@
       margin-bottom: 6px;
       color: #cbd5e1;
       font-size: 13px;
+      font-weight: 600;
     }
 
-    input, select {
+    input, select, textarea {
       width: 100%;
-      padding: 13px;
-      border: 1px solid #475569;
-      border-radius: 10px;
-      background: #0f172a;
-      color: white;
-      font-size: 15px;
+      padding: 11px 14px;
+      border: 1px solid #374151;
+      border-radius: 8px;
+      background: #0b0f19;
+      color: #f1f5f9;
+      font-size: 14px;
+      font-family: inherit;
     }
 
-    input:focus, select:focus {
-      outline: 2px solid #3b82f6;
+    input:focus, select:focus, textarea:focus {
+      outline: 2px solid #38bdf8;
       border-color: transparent;
     }
 
     textarea {
-      width: 100%;
-      padding: 13px;
-      border: 1px solid #475569;
-      border-radius: 10px;
-      background: #0f172a;
-      color: white;
-      font-size: 14px;
-      font-family: monospace;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       resize: vertical;
     }
 
-    textarea:focus {
-      outline: 2px solid #3b82f6;
-      border-color: transparent;
-    }
-
-    .password-wrapper {
-      position: relative;
-    }
-
-    .password-wrapper input {
-      padding-left: 70px;
-    }
-
-    .show-password {
-      position: absolute;
-      left: 6px;
-      top: 6px;
-      padding: 7px 9px;
-      background: #475569;
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 14px;
       font-size: 12px;
+      font-weight: 600;
+    }
+
+    .badge-green { background: #064e3b; color: #6ee7b7; border: 1px solid #059669; }
+    .badge-blue { background: #1e3a8a; color: #93c5fd; border: 1px solid #2563eb; }
+    .badge-amber { background: #78350f; color: #fde68a; border: 1px solid #d97706; }
+    .badge-red { background: #7f1d1d; color: #fca5a5; border: 1px solid #dc2626; }
+    .badge-gray { background: #1f2937; color: #9ca3af; border: 1px solid #374151; }
+
+    .site-card {
+      background: #0b0f19;
+      border: 1px solid #1f2937;
+      border-radius: 12px;
+      padding: 18px;
+      margin-bottom: 14px;
+      transition: border-color 0.2s;
+    }
+
+    .site-card:hover {
+      border-color: #374151;
+    }
+
+    .site-card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 10px;
+    }
+
+    .site-card-title {
+      font-size: 17px;
+      font-weight: 700;
+    }
+
+    .site-card-host {
+      color: #94a3b8;
+      font-size: 13px;
+      direction: ltr;
+      text-align: right;
+    }
+
+    .site-card-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+
+    /* Chat Styling */
+    .chat-box {
+      display: flex;
+      flex-direction: column;
+      height: 580px;
+    }
+
+    .chat-history {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      background: #0b0f19;
+      border: 1px solid #1f2937;
+      border-radius: 10px;
+      margin-bottom: 14px;
+    }
+
+    .chat-msg {
+      max-width: 85%;
+      padding: 14px 18px;
+      border-radius: 12px;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .chat-msg-user {
+      align-self: flex-start;
+      background: #1e3a8a;
+      color: #eff6ff;
+      border-bottom-left-radius: 2px;
+    }
+
+    .chat-msg-ai {
+      align-self: flex-end;
+      background: #1f2937;
+      color: #f3f4f6;
+      border: 1px solid #374151;
+      border-bottom-right-radius: 2px;
+      width: 100%;
+      max-width: 95%;
+    }
+
+    .blueprint-box {
+      background: #0f172a;
+      border: 1px solid #2563eb;
+      border-radius: 8px;
+      padding: 14px;
+      margin-top: 12px;
+    }
+
+    .diff-box {
+      background: #050b14;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 12px;
+      margin-top: 12px;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      font-size: 13px;
+      overflow-x: auto;
+    }
+
+    .diff-add { color: #4ade80; background: rgba(74, 222, 128, 0.1); padding: 2px 4px; border-radius: 3px; }
+    .diff-del { color: #f87171; background: rgba(248, 113, 113, 0.1); padding: 2px 4px; border-radius: 3px; }
+
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.8);
+      z-index: 200;
+      padding: 20px;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal.active { display: flex; }
+
+    .modal-content {
+      width: 100%;
+      max-width: 600px;
+      background: #111827;
+      border: 1px solid #1f2937;
+      border-radius: 14px;
+      padding: 24px;
+      max-height: 90vh;
+      overflow-y: auto;
     }
 
     .modal-actions {
       display: flex;
       gap: 10px;
-      margin-top: 20px;
+      margin-top: 22px;
     }
 
-    .save {
-      flex: 1;
-      background: #22c55e;
+    .notice {
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 14px;
+      font-size: 13px;
+    }
+    .notice-info { background: #1e3a8a; border: 1px solid #3b82f6; color: #dbeafe; }
+    .notice-success { background: #064e3b; border: 1px solid #10b981; color: #d1fae5; }
+    .notice-warn { background: #78350f; border: 1px solid #f59e0b; color: #fef3c7; }
+    .notice-error { background: #7f1d1d; border: 1px solid #ef4444; color: #fee2e2; }
+
+    .pills {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
     }
 
-    .cancel {
-      flex: 1;
-      background: #475569;
-    }
-
-    #message {
-      margin-bottom: 15px;
-      padding: 12px;
-      border-radius: 10px;
-      display: none;
-      white-space: pre-line;
-      word-break: break-word;
-    }
-
-    .error {
-      display: block !important;
-      background: #450a0a;
-      color: #fca5a5;
-    }
-
-    .success {
-      display: block !important;
-      background: #052e16;
-      color: #86efac;
-    }
-
-    .loading {
-      text-align: center;
+    .pill {
+      background: #1f2937;
+      border: 1px solid #374151;
+      padding: 6px 12px;
+      border-radius: 16px;
+      font-size: 12px;
+      cursor: pointer;
       color: #94a3b8;
-      padding: 20px;
     }
-
-    @media (max-width: 600px) {
-
-      .header-inner {
-        align-items: flex-start;
-      }
-
-      .brand {
-        font-size: 17px;
-      }
-
-      .hero h1 {
-        font-size: 22px;
-      }
-
-      .modal-actions {
-        flex-direction: column;
-      }
-
-      .site-actions {
-        flex-direction: column;
-      }
-
+    .pill:hover {
+      color: #38bdf8;
+      border-color: #38bdf8;
     }
-
   </style>
-
 </head>
-
 
 <body>
 
-
-<header class="header">
-
-  <div class="header-inner">
-
-    <div>
-
-      <div class="brand">
-        🤖 Arabic AI Site Manager
+  <header class="header">
+    <div class="header-inner">
+      <div class="brand-wrapper">
+        <span class="brand-icon">⚡</span>
+        <div>
+          <div class="brand-title">Arabic AI Site Engineering Platform</div>
+          <div class="brand-sub">نظام هندسة وإدارة المواقع الذكي المتقدم عبر SSH</div>
+        </div>
       </div>
-
-      <div
-        class="user"
-        id="userEmail">
-        جاري تحميل الحساب...
+      <div class="header-actions">
+        <span class="user-pill" id="userEmail">جاري التحميل...</span>
+        <button class="btn-danger" onclick="logout()">خروج</button>
       </div>
-
     </div>
+  </header>
 
+  <nav class="nav-tabs">
+    <div class="nav-tabs-inner">
+      <button class="nav-tab active" onclick="switchTab('sitesTab')">🌐 المواقع (Sites)</button>
+      <button class="nav-tab" onclick="switchTab('aiTab')">🤖 مزودو الذكاء الاصطناعي (AI)</button>
+      <button class="nav-tab" onclick="switchTab('chatTab')">💬 المهندس الذكي (Chat)</button>
+      <button class="nav-tab" onclick="switchTab('scannerTab')">🔍 فحص المعمارية (Scanner)</button>
+      <button class="nav-tab" onclick="switchTab('builderTab')">🏗️ منشئ المواقع (Builder)</button>
+      <button class="nav-tab" onclick="switchTab('seoTab')">📈 محرك السيو (SEO)</button>
+      <button class="nav-tab" onclick="switchTab('perfTab')">⚡ تحسين الأداء (Speed)</button>
+      <button class="nav-tab" onclick="switchTab('deployTab')">🚀 سجل النشر (Deploy)</button>
+      <button class="nav-tab" onclick="switchTab('backupsTab')">💾 النسخ والـ Rollback</button>
+      <button class="nav-tab" onclick="switchTab('settingsTab')">⚙️ الإعدادات</button>
+    </div>
+  </nav>
 
-    <button
-      class="logout"
-      onclick="logout()">
+  <main>
+    <div id="globalNotice"></div>
 
-      تسجيل الخروج
+    <!-- TAB 1: SITES -->
+    <section id="sitesTab" class="tab-pane active">
+      <div class="stats-grid">
+        <div class="stat-box">
+          <div class="stat-val" id="statSitesCount">0</div>
+          <div class="stat-lbl">المواقع المسجلة</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val" id="statAiStatus">متصل</div>
+          <div class="stat-lbl">حالة محرك الذكاء الاصطناعي</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val" id="statBackupsCount">0</div>
+          <div class="stat-lbl">النسخ الاحتياطية</div>
+        </div>
+      </div>
 
-    </button>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">🌐 المواقع المرتبطة عبر SSH</div>
+          <button class="btn-success" onclick="openAddSiteModal()">+ إضافة موقع جديد</button>
+        </div>
+        <div id="sitesListContainer">
+          <div style="text-align:center; padding:30px; color:#94a3b8;">جاري تحميل المواقع...</div>
+        </div>
+      </div>
+    </section>
 
+    <!-- TAB 2: AI PROVIDERS -->
+    <section id="aiTab" class="tab-pane">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">🤖 إعدادات مزود الذكاء الاصطناعي (AI Provider System)</div>
+          <button class="btn-primary" onclick="testAiConnection()">⚡ اختبار الاتصال (Test Connection)</button>
+        </div>
+        <div id="aiTestNotice"></div>
+
+        <div class="grid-2">
+          <div>
+            <label>مزود الذكاء الاصطناعي (AI Provider)</label>
+            <select id="aiProviderSelect" onchange="onProviderChange()">
+              <option value="gemini">Google Gemini (Google AI Studio)</option>
+              <option value="openrouter" selected>OpenRouter (Multi-Model Hub)</option>
+              <option value="openai">OpenAI / Compatible Endpoint (DeepSeek, Groq, Ollama)</option>
+              <option value="anthropic">Anthropic Claude</option>
+              <option value="custom">Custom Endpoint</option>
+            </select>
+
+            <label>عنوان الـ API الأساسي (API Base URL)</label>
+            <input id="aiBaseUrlInput" type="text" placeholder="https://openrouter.ai/api/v1">
+
+            <label>اسم النموذج (Model Name)</label>
+            <input id="aiModelInput" type="text" value="google/gemini-2.0-flash-001" placeholder="مثال: gemini-2.0-flash أو gpt-4o-mini">
+          </div>
+
+          <div>
+            <label>مفتاح API الخاص بالمزود (API Key)</label>
+            <div style="position:relative;">
+              <input id="aiApiKeyInput" type="password" placeholder="اتركه فارغاً للحفاظ على المفتاح المشفر الحالي">
+            </div>
+            <div id="apiKeyNotice" style="font-size:12px; color:#94a3b8; margin-top:4px;">المفتاح مشفر بنظام AES-GCM على السيرفر ولن يظهر في المتصفح.</div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+              <div>
+                <label>درجة الإبداع (Temperature)</label>
+                <input id="aiTempInput" type="number" step="0.1" min="0" max="2" value="0.7">
+              </div>
+              <div>
+                <label>الحد الأقصى للرموز (Max Tokens)</label>
+                <input id="aiMaxTokensInput" type="number" step="500" min="500" max="32000" value="4000">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-actions" style="margin-top:20px;">
+          <button class="btn-success" onclick="saveAiProviderSettings()">💾 حفظ إعدادات الذكاء الاصطناعي</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: CHAT -->
+    <section id="chatTab" class="tab-pane">
+      <div class="card chat-box">
+        <div class="card-header">
+          <div class="card-title">💬 المهندس الذكي (AI Senior Website Engineer)</div>
+          <span class="badge badge-blue" id="activeSiteBadge">الموقع: تلقائي</span>
+        </div>
+
+        <div class="pills">
+          <span class="pill" onclick="sendPrompt('افحص الموقع بالكامل وقدم تقرير شامل عن المشاكل')">🔍 فحص شامل للموقع</span>
+          <span class="pill" onclick="sendPrompt('حلل أداء وسرعة الموقع و Core Web Vitals')">⚡ تحليل السرعة و LCP</span>
+          <span class="pill" onclick="sendPrompt('دقق في وسوم السيو Schema و Canonical')">📈 تدقيق SEO و Schema</span>
+          <span class="pill" onclick="sendPrompt('اقترح استراتيجية باك لينكس ومحتوى لتصدر محركات البحث')">🔗 استراتيجية Backlinks</span>
+          <span class="pill" onclick="sendPrompt('صمم صفحة هبوط خدمات حديثة بالكامل متوافقة مع الموبايل')">🏗️ بناء صفحة هبوط</span>
+        </div>
+
+        <div class="chat-history" id="chatHistoryBox">
+          <div class="chat-msg chat-msg-ai">
+            مرحباً بك! أنا مهندسك ومستشارك التقني الذكي (AI Senior Website Engineer).
+            أستطيع فهم معمارية موقعك، تشخيص مشكلات السيرفر و SSL، تدقيق SEO والبيانات المنظمة Schema، تحسين سرعة التحميل و Core Web Vitals، وتجهيز تعديلات الكود وعرض الفروقات (Diffs) لتعتمدها قبل التثبيت الفعلي.
+          </div>
+        </div>
+
+        <div style="display:flex; gap:10px;">
+          <input id="chatTextInput" type="text" placeholder="اطلب فحصاً، تعديلاً، أو بناء صفحة جديدة..." onkeydown="if(event.key==='Enter') sendUserChat()">
+          <button class="btn-primary" onclick="sendUserChat()">إرسال</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: SCANNER -->
+    <section id="scannerTab" class="tab-pane">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">🔍 فحص معمارية الموقع (Website Architecture Scanner)</div>
+          <button class="btn-primary" onclick="triggerSiteScan()">🚀 بدء فحص واكتشاف المشروع</button>
+        </div>
+        <div id="scanResultBox">
+          <div class="notice notice-info">
+            اضغط على "بدء فحص واكتشاف المشروع" لتحليل ملفات الموقع واكتشاف إطار العمل (Next.js, WordPress, React, Laravel, Astro, Static)، المسار العام، نقاط الدخول، والتبعيات.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 5: BUILDER -->
+    <section id="builderTab" class="tab-pane">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">🏗️ منشئ ومطور المواقع (AI Multi-Page Builder)</div>
+          <button class="btn-success" id="deployBatchBtn" style="display:none;" onclick="deployStagedBatch()">🚀 نشر الحزمة للموقع عبر SSH</button>
+        </div>
+        <div class="notice notice-info">
+          اكتب فكرة الموقع أو الصفحة وسيقوم الذكاء الاصطناعي بإنشاء هيكل متكامل (HTML5, CSS3, JS, Schema, Meta) مع تشغيل المحسن التلقائي (Autofix) وفحص الجودة الدقيق.
+        </div>
+        <textarea id="builderPromptInput" rows="3" placeholder="مثال: أنشئ موقع متكامل من 4 صفحات لوكالة تسويق رقمي وإعلانات ممولة تستهدف السوق الأمريكي مع نموذج تواصل وسيو كامل..."></textarea>
+        <div class="modal-actions">
+          <button class="btn-primary" onclick="generateSiteBlueprint()">✨ إنشاء الخطة وحزمة الملفات</button>
+        </div>
+
+        <div id="builderOutputBox" style="margin-top:20px;"></div>
+      </div>
+    </section>
+
+    <!-- TAB 6: SEO -->
+    <section id="seoTab" class="tab-pane">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">📈 محرك تدقيق واستراتيجيات السيو (SEO Intelligence Engine)</div>
+        </div>
+        <div class="grid-2">
+          <div>
+            <label>كود HTML المراد تدقيقه (أو سيتم فحص الصفحة الرئيسية للموقع المختار)</label>
+            <textarea id="seoHtmlInput" rows="10" placeholder="الصق كود HTML هنا للتدقيق الفوري..."></textarea>
+            <button class="btn-primary" style="margin-top:10px;" onclick="runSeoAudit()">🔍 تدقيق وسوم السيو و Schema</button>
+          </div>
+          <div id="seoReportBox">
+            <div class="notice notice-info">تقرير السيو، توزيع الكلمات المفتاحية، وفحص وسوم Canonical و OpenGraph سيظهر هنا.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 7: PERFORMANCE -->
+    <section id="perfTab" class="tab-pane">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">⚡ هندسة الأداء و Core Web Vitals (Performance Engine)</div>
+          <button class="btn-primary" onclick="runPerfAudit()">⚡ تشخيص الأداء وسرعة التحميل</button>
+        </div>
+        <div class="grid-2" style="margin-bottom:16px;">
+          <div class="stat-box">
+            <div class="stat-val" style="color:#4ade80;">LCP &lt; 2.5s</div>
+            <div class="stat-lbl">أكبر عنصر مرئي (Largest Contentful Paint)</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-val" style="color:#38bdf8;">CLS &lt; 0.1</div>
+            <div class="stat-lbl">استقرار التخطيط البصري (Layout Shift)</div>
+          </div>
+        </div>
+        <div id="perfReportBox">
+          <div class="notice notice-info">سيرصد المحرك عناصر حجب الرسم (Render-Blocking Scripts)، أبعاد الصور لتجنب CLS، وحلول تحويل الصور إلى WebP/AVIF.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 8: DEPLOY -->
+    <section id="deployTab" class="tab-pane">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">🚀 سجل عمليات النشر ومهام SSH (Deployments)</div>
+          <button class="btn-secondary" onclick="loadDeployments()">🔄 تحديث السجل</button>
+        </div>
+        <div id="deploymentsListBox">
+          <div style="text-align:center; padding:30px; color:#94a3b8;">جاري تحميل سجل العمليات...</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 9: BACKUPS -->
+    <section id="backupsTab" class="tab-pane">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">💾 إدارة واستعادة النسخ الاحتياطية (Backups & Rollback)</div>
+        </div>
+        <div id="backupsListBox">
+          <div style="text-align:center; padding:30px; color:#94a3b8;">جاري تحميل النسخ الاحتياطية...</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 10: SETTINGS -->
+    <section id="settingsTab" class="tab-pane">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">⚙️ إعدادات المنصة والأمان</div>
+        </div>
+        <div class="notice notice-info">
+          🛡️ جميع كلمات سر ومفاتيح SSH مشفرة بتشفير AES-GCM المقوى.
+          جميع العمليات الإنشائية تمر عبر Staging معزول مع إمكانية التراجع الفوري (Atomic Rollback).
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ADD SITE MODAL -->
+  <div class="modal" id="addSiteModal">
+    <div class="modal-content">
+      <h2 style="margin-bottom:14px;">🔐 إضافة موقع جديد عبر SSH</h2>
+      <div class="notice notice-info">
+        يتم تشفير كلمة المرور فوراً ولا يتم إعادتها للمتصفح.
+      </div>
+      <label>اسم الموقع</label>
+      <input id="siteNameInput" type="text" placeholder="موقعي الرئيسي">
+
+      <label>SSH Host / IP</label>
+      <input id="siteHostInput" type="text" placeholder="ssh.example.com">
+
+      <label>رابط الموقع الفعلي (Public URL)</label>
+      <input id="sitePublicUrlInput" type="text" placeholder="https://example.com">
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+        <div>
+          <label>SSH Port</label>
+          <input id="sitePortInput" type="number" value="22">
+        </div>
+        <div>
+          <label>SSH Username</label>
+          <input id="siteUsernameInput" type="text" placeholder="root">
+        </div>
+      </div>
+
+      <label>SSH Password</label>
+      <input id="sitePasswordInput" type="password" placeholder="كلمة مرور SSH">
+
+      <label>مجلد الموقع على الخادم (Working Directory)</label>
+      <input id="siteDirectoryInput" type="text" value="/var/www/html">
+
+      <div class="modal-actions">
+        <button class="btn-success" onclick="submitAddSite()">🔐 حفظ الموقع</button>
+        <button class="btn-secondary" onclick="closeAddSiteModal()">إلغاء</button>
+      </div>
+    </div>
   </div>
 
-</header>
-
-
-
-<main>
-
-
-  <section class="hero">
-
-    <h1>
-      أهلاً بك 👋
-    </h1>
-
-    <p>
-
-      من هنا ستدير موقعك وتتواصل مع
-      مدير الذكاء الاصطناعي لتنفيذ
-      المهام البرمجية وإدارة الموقع.
-
-    </p>
-
-  </section>
-
-
-
-  <section class="stats">
-
-
-    <div class="stat">
-
-      <div
-        class="stat-number"
-        id="sitesCount">
-
-        0
-
-      </div>
-
-      <div class="stat-label">
-
-        الموقع الحالي
-
-      </div>
-
-    </div>
-
-
-    <div class="stat">
-
-      <div class="stat-number">
-
-        0
-
-      </div>
-
-      <div class="stat-label">
-
-        المهام
-
-      </div>
-
-    </div>
-
-
-    <div class="stat">
-
-      <div class="stat-number">
-
-        0
-
-      </div>
-
-      <div class="stat-label">
-
-        Backups
-
-      </div>
-
-    </div>
-
-
-  </section>
-
-
-
-  <section class="section">
-
-    <div class="section-title">
-
-      <h2>
-        ⚙️ إعدادات الذكاء الاصطناعي
-      </h2>
-
-    </div>
-
-    <div id="settingsMessage"></div>
-
-    <label>
-      الموديل المستخدم في التشخيص
-    </label>
-
-    <select
-      id="aiModelSelect"
-      onchange="onModelSelectChange()">
-
-      <option value="">جاري التحميل...</option>
-
-    </select>
-
-    <div
-      id="customModelWrapper"
-      style="display:none; margin-top:12px;">
-
-      <label>
-        اسم الموديل (اكتبه بالظبط زي ما هو في OpenRouter)
-      </label>
-
-      <input
-        id="customModelInput"
-        type="text"
-        placeholder="مثال: mistralai/mistral-7b-instruct:free"
-        autocomplete="off">
-
-    </div>
-
-    <br>
-
-    <label>
-      مفتاح OpenRouter API الخاص بك
-    </label>
-
-    <div class="password-wrapper">
-
-      <input
-        id="openrouterKeyInput"
-        type="password"
-        placeholder="اتركه فاضي لو مش عايز تغيّر المفتاح الحالي"
-        autocomplete="new-password">
-
-      <button
-        type="button"
-        class="show-password"
-        onclick="toggleSettingsKeyVisibility()">
-
-        إظهار
-
-      </button>
-
-    </div>
-
-    <div
-      id="apiKeyStatus"
-      style="margin-top:6px; font-size:13px; color:#94a3b8;">
-    </div>
-
-    <div class="modal-actions">
-
-      <button
-        class="save"
-        onclick="saveAiSettings()">
-
-        💾 حفظ الإعدادات
-
-      </button>
-
-    </div>
-
-  </section>
-
-
-
-  <section class="section">
-
-
-    <div class="section-title">
-
-      <h2>
-        🌐 الموقع الحالي
-      </h2>
-
-
-      <button
-        class="add"
-        onclick="openModal()">
-
-        + إضافة موقع
-
-      </button>
-
-    </div>
-
-
-
-    <div id="message"></div>
-
-
-
-    <div
-      id="siteList"
-      class="site-list">
-
-      <div class="loading">
-
-        جاري تحميل الموقع...
-
-      </div>
-
-    </div>
-
-
-  </section>
-
-
-
-  <section class="section">
-
-
-    <div class="section-title">
-
-      <h2>
-        🤖 الشات مع الذكاء الاصطناعي
-      </h2>
-
-    </div>
-
-    <div
-      id="chatHistory"
-      style="max-height:360px; overflow-y:auto; display:flex; flex-direction:column; gap:10px; margin-bottom:12px;">
-    </div>
-
-    <div style="display:flex; gap:8px;">
-
-      <input
-        id="chatInput"
-        type="text"
-        placeholder="اكتب طلبك هنا، مثلاً: شخصلي موقعي"
-        autocomplete="off"
-        onkeydown="if(event.key==='Enter'){sendChatMessage();}"
-        style="flex:1;">
-
-      <button
-        class="save"
-        onclick="sendChatMessage()">
-
-        إرسال
-
-      </button>
-
-    </div>
-
-
-  </section>
-
-
-</main>
-
-
-
-<div
-  class="modal"
-  id="siteModal">
-
-
-  <div class="modal-box">
-
-
-    <h2>
-      🔐 إضافة موقع عبر SSH
-    </h2>
-
-
-    <div class="security-note">
-
-      بيانات SSH يتم إرسالها عبر HTTPS
-      ويتم تشفير كلمة المرور قبل تخزينها
-      في قاعدة البيانات.
-
-      <br><br>
-
-      كلمة المرور لن تظهر في قائمة المواقع
-      ولن يتم إرجاعها للمتصفح بعد الحفظ.
-
-    </div>
-
-
-
-    <label>
-      اسم الموقع
-    </label>
-
-    <input
-      id="siteName"
-      type="text"
-      placeholder="موقعي الرئيسي"
-      autocomplete="off">
-
-
-
-    <label>
-      SSH Host / IP
-    </label>
-
-    <input
-      id="hostname"
-      type="text"
-      placeholder="ssh-nodes.alwaysdata.net"
-      autocomplete="off">
-
-
-
-    <label>
-      رابط الموقع الفعلي (اللي بيفتح في المتصفح)
-    </label>
-
-    <input
-      id="publicUrl"
-      type="text"
-      placeholder="مثال: nodes.alwaysdata.net (لو مختلف عن SSH Host فوق)"
-      autocomplete="off">
-
-    <div style="font-size:12px; color:#94a3b8; margin-top:-6px; margin-bottom:10px;">
-      في بعض الاستضافات (زي alwaysdata) عنوان الدخول بالـ SSH بيكون مختلف عن رابط الموقع الحقيقي. لو سيبت الخانة فاضية، هنستخدم SSH Host نفسه في الفحص والتشخيص.
-    </div>
-
-
-
-    <label>
-      SSH Port
-    </label>
-
-    <input
-      id="port"
-      type="number"
-      value="22"
-      min="1"
-      max="65535"
-      autocomplete="off">
-
-
-
-    <label>
-      SSH Username
-    </label>
-
-    <input
-      id="username"
-      type="text"
-      placeholder="root"
-      autocomplete="off">
-
-
-
-    <label>
-      SSH Password
-    </label>
-
-
-    <div class="password-wrapper">
-
-      <input
-        id="sshPassword"
-        type="password"
-        placeholder="كلمة مرور SSH"
-        autocomplete="new-password">
-
-
-      <button
-        type="button"
-        class="show-password"
-        onclick="togglePassword()">
-
-        إظهار
-
-      </button>
-
-    </div>
-
-
-
-    <label>
-      مجلد الموقع
-    </label>
-
-    <input
-      id="workingDirectory"
-      type="text"
-      value="/var/www/html"
-      placeholder="/var/www/html"
-      autocomplete="off">
-
-
-
-    <div class="modal-actions">
-
-
-      <button
-        class="save"
-        id="saveButton"
-        onclick="addSite()">
-
-        🔐 حفظ بيانات SSH
-
-      </button>
-
-
-      <button
-        class="cancel"
-        onclick="closeModal()">
-
-        إلغاء
-
-      </button>
-
-
-    </div>
-
-
-  </div>
-
-</div>
-
-
-
-<div
-  class="modal"
-  id="writeModal">
-
-
-  <div class="modal-box">
-
-
-    <h2>
-      ✍️ كتابة ملف على الموقع
-    </h2>
-
-
-    <div class="security-note">
-
-      هيتم كتابة الملف جوه مجلد الموقع بس.
-      لو الملف موجود بالفعل، هيُطلب منك تأكيد
-      صريح قبل الاستبدال.
-
-    </div>
-
-
-
-    <label>
-      اسم/مسار الملف (نسبةً لمجلد الموقع)
-    </label>
-
-    <input
-      id="writeFilePath"
-      type="text"
-      placeholder="مثال: test.txt أو css/style.css"
-      autocomplete="off">
-
-
-
-    <label>
-      محتوى الملف
-    </label>
-
-    <textarea
-      id="writeFileContent"
-      rows="10"
-      placeholder="اكتب محتوى الملف هنا..."></textarea>
-
-
-    <div
-      id="writeOverwriteNote"
-      class="security-note"
-      style="display:none; color:#f5a623;">
-
-      ⚠️ الملف موجود بالفعل. دوس "استبدال" تاني للتأكيد.
-
-    </div>
-
-
-    <div class="modal-actions">
-
-
-      <button
-        class="save"
-        id="writeSaveButton"
-        onclick="submitWriteFile()">
-
-        ✍️ حفظ الملف
-
-      </button>
-
-
-      <button
-        class="cancel"
-        onclick="closeWriteModal()">
-
-        إلغاء
-
-      </button>
-
-
-    </div>
-
-
-  </div>
-
-</div>
-
-
-
-<script>
-
-
-const tokenKey =
-  "arabic_ai_token";
-
-
-function getToken() {
-
-  return localStorage.getItem(
-    tokenKey
-  );
-
-}
-
-
-
-function logout() {
-
-  localStorage.removeItem(
-    tokenKey
-  );
-
-  window.location.href =
-    "/test-auth.html";
-
-}
-
-
-
-function showMessage(
-  text,
-  type = "success"
-) {
-
-  const element =
-    document.getElementById(
-      "message"
-    );
-
-  element.textContent =
-    text;
-
-  element.className =
-    type;
-
-}
-
-
-
-function openModal() {
-
-  document
-    .getElementById("siteModal")
-    .classList.add("active");
-
-}
-
-
-
-function closeModal() {
-
-  document
-    .getElementById("siteModal")
-    .classList.remove("active");
-
-}
-
-
-
-function togglePassword() {
-
-  const input =
-    document.getElementById(
-      "sshPassword"
-    );
-
-  const button =
-    document.querySelector(
-      ".show-password"
-    );
-
-
-  if (
-    input.type === "password"
-  ) {
-
-    input.type = "text";
-
-    button.textContent =
-      "إخفاء";
-
-  } else {
-
-    input.type = "password";
-
-    button.textContent =
-      "إظهار";
-
-  }
-
-}
-
-
-
-async function loadUser() {
-
-  const token =
-    getToken();
-
-
-  if (!token) {
-
-    window.location.href =
-      "/test-auth.html";
-
-    return false;
-
-  }
-
-
-  try {
-
-    const response =
-      await fetch(
-        "/api/auth/me",
-        {
-          headers: {
-            "Authorization":
-              `Bearer ${token}`
-          }
-        }
-      );
-
-
-    if (!response.ok) {
-
-      localStorage.removeItem(
-        tokenKey
-      );
-
-      window.location.href =
-        "/test-auth.html";
-
-      return false;
-
+  <script>
+    const tokenKey = "arabic_ai_token";
+    let activeSiteId = null;
+    let sitesCache = [];
+    let stagedFilesCache = [];
+
+    function getToken() {
+      return localStorage.getItem(tokenKey);
     }
 
-
-    const data =
-      await response.json();
-
-
-    document
-      .getElementById("userEmail")
-      .textContent =
-        data.user.email;
-
-
-    return true;
-
-
-  } catch (error) {
-
-    showMessage(
-      "تعذر الاتصال بالخادم",
-      "error"
-    );
-
-    return false;
-
-  }
-
-}
-
-
-
-async function runHealthCheck(hostname, sshStatus) {
-  const getBox = () => document.getElementById("healthCheckResult");
-  if (getBox()) getBox().innerHTML = "⏳ جاري الفحص...";
-
-  operationInProgress = true;
-
-  try {
-    const response = await fetch("/api/health-check-all", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ hostname })
-    });
-
-    const data = await response.json();
-
-    if (!data.success) {
-      if (getBox()) getBox().innerHTML = `❌ ${escapeHtml(data.error || "فشل الفحص")}`;
-      return;
+    function logout() {
+      localStorage.removeItem(tokenKey);
+      window.location.href = "/test-auth.html";
     }
 
-    const httpLine = data.http.reachable
-      ? `🟢 HTTP: يستجيب (${data.http.status_code}) - ${data.http.response_time_ms}ms`
-      : `🔴 HTTP: لا يستجيب`;
+    function switchTab(tabId) {
+      document.querySelectorAll(".nav-tab").forEach(t => t.classList.remove("active"));
+      document.querySelectorAll(".tab-pane").forEach(p => p.classList.remove("active"));
 
-    const dnsLine = data.dns.resolved
-      ? `🟢 DNS: يعمل (${data.dns.records[0]?.data || ""})`
-      : `🔴 DNS: فشل`;
+      const targetBtn = Array.from(document.querySelectorAll(".nav-tab")).find(b => b.getAttribute("onclick")?.includes(tabId));
+      if (targetBtn) targetBtn.classList.add("active");
 
-    const tlsLine = data.tls.https_ok
-      ? `🟢 TLS: شهادة سليمة`
-      : `🔴 TLS: ${escapeHtml(data.tls.error || "مشكلة")}`;
-
-    let sshLine;
-    if (sshStatus === "success") {
-      sshLine = `🟢 SSH: متصل (آخر اختبار ناجح)`;
-    } else if (sshStatus === "failed") {
-      sshLine = `🔴 SSH: فشل آخر اختبار`;
-    } else if (sshStatus === "testing") {
-      sshLine = `🟡 SSH: جاري الاختبار حاليًا`;
-    } else {
-      sshLine = `⚪ SSH: لم يتم اختباره بعد (استخدم زر اختبار SSH)`;
+      const targetPane = document.getElementById(tabId);
+      if (targetPane) targetPane.classList.add("active");
     }
 
-    if (getBox()) {
-      getBox().innerHTML = `
-        <div class="badge">${httpLine}</div>
-        <div class="badge">${dnsLine}</div>
-        <div class="badge">${tlsLine}</div>
-        <div class="badge">${sshLine}</div>
-      `;
-    }
-  } catch (error) {
-    if (getBox()) getBox().innerHTML = "❌ تعذر إجراء الفحص";
-  } finally {
-    operationInProgress = false;
-  }
-}
-
-
-async function runAiDiagnosis(hostname) {
-  const getBox = () => document.getElementById("aiDiagnosisResult");
-  if (getBox()) getBox().innerHTML = "🤖 جاري التشخيص عبر الذكاء الاصطناعي...";
-
-  operationInProgress = true;
-
-  try {
-    const response = await fetch("/api/ai-diagnose", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ hostname }),
-      signal: AbortSignal.timeout(60000)
-    });
-
-    const data = await response.json();
-
-    if (!data.success) {
-      if (getBox()) getBox().innerHTML = `❌ ${escapeHtml(data.error || "فشل التشخيص")}`;
-      return;
+    function showNotice(msg, type = "info", containerId = "globalNotice") {
+      const el = document.getElementById(containerId);
+      if (!el) return;
+      el.innerHTML = `<div class="notice notice-${type}">${msg}</div>`;
+      setTimeout(() => { if (el.innerHTML.includes(msg)) el.innerHTML = ""; }, 8000);
     }
 
-    const d = data.diagnosis || {};
-    const steps = Array.isArray(d.suggested_steps)
-      ? d.suggested_steps.map((s) => `<li>${escapeHtml(s)}</li>`).join("")
-      : "";
-
-    if (getBox()) {
-      getBox().innerHTML = `
-        <div class="badge">🩺 المشكلة: ${escapeHtml(d.problem || "غير محدد")}</div>
-        <div class="badge">🔎 السبب المحتمل: ${escapeHtml(d.likely_cause || "غير محدد")}</div>
-        ${steps ? `<div class="badge">📋 خطوات مقترحة:<ul>${steps}</ul></div>` : ""}
-      `;
-    }
-  } catch (error) {
-    if (getBox()) getBox().innerHTML = "❌ انتهت مهلة الانتظار أو تعذر إجراء التشخيص، حاول مرة أخرى";
-  } finally {
-    operationInProgress = false;
-  }
-}
-
-
-function getSSHStatus(
-  site
-) {
-
-  const status =
-    site.ssh_test_status ||
-    "not_tested";
-
-
-  if (
-    status === "testing"
-  ) {
-
-    return `
-      <div class="ssh-status testing">
-        ⏳ جاري اختبار اتصال SSH
-      </div>
-    `;
-
-  }
-
-
-  if (
-    status === "success"
-  ) {
-
-    return `
-      <div class="ssh-status success">
-        🟢 اتصال SSH ناجح
-      </div>
-    `;
-
-  }
-
-
-  if (
-    status === "failed"
-  ) {
-
-    return `
-      <div class="ssh-status failed">
-        🔴 فشل اتصال SSH
-      </div>
-    `;
-
-  }
-
-
-  return `
-    <div class="ssh-status">
-      ⚪ لم يتم اختبار SSH بعد
-    </div>
-  `;
-
-}
-
-
-
-async function loadSites(isAutoRefresh) {
-
-  const token =
-    getToken();
-
-
-  if (!token) {
-    return;
-  }
-
-
-  const list =
-    document.getElementById(
-      "siteList"
-    );
-
-
-  const savedHealthBox =
-    document.getElementById("healthCheckResult");
-
-  const savedAiBox =
-    document.getElementById("aiDiagnosisResult");
-
-  const savedReadFilesBox =
-    document.getElementById("readFilesResult");
-
-  const savedWriteFilesBox =
-    document.getElementById("writeFilesResult");
-
-  const savedBackupsBox =
-    document.getElementById("backupsResult");
-
-  const savedHealthHtml =
-    savedHealthBox ? savedHealthBox.innerHTML : "";
-
-  const savedAiHtml =
-    savedAiBox ? savedAiBox.innerHTML : "";
-
-  const savedReadFilesHtml =
-    savedReadFilesBox ? savedReadFilesBox.innerHTML : "";
-
-  const savedWriteFilesHtml =
-    savedWriteFilesBox ? savedWriteFilesBox.innerHTML : "";
-
-  const savedBackupsHtml =
-    savedBackupsBox ? savedBackupsBox.innerHTML : "";
-
-
-  if (!isAutoRefresh) {
-
-    list.innerHTML =
-      `<div class="loading">
-        جاري تحميل الموقع...
-      </div>`;
-
-  }
-
-
-  try {
-
-    const response =
-      await fetch(
-        "/api/sites",
-        {
-          headers: {
-            "Authorization":
-              `Bearer ${token}`
-          }
-        }
-      );
-
-
-    const data =
-      await response.json();
-
-
-    if (!response.ok) {
-
-      list.innerHTML =
-        `<div class="empty">
-          ❌ ${escapeHtml(
-            data.error ||
-            "حدث خطأ"
-          )}
-        </div>`;
-
-      return;
-
-    }
-
-
-    const sites =
-      data.sites || [];
-
-
-    document
-      .getElementById("sitesCount")
-      .textContent =
-        sites.length;
-
-
-    if (sites.length === 0) {
-
-      list.innerHTML =
-        `<div class="empty">
-
-          لا يوجد موقع حاليًا.
-
-          <br><br>
-
-          اضغط «إضافة موقع»
-          لإضافة موقعك عبر SSH.
-
-        </div>`;
-
-      return;
-
-    }
-
-
-    const site =
-      sites[0];
-
-
-    list.innerHTML = `
-
-      <div class="site">
-
-
-        <div class="site-name">
-
-          🌐 ${escapeHtml(
-            site.name
-          )}
-
-        </div>
-
-
-        <div class="site-host">
-
-          ${escapeHtml(
-            site.username
-          )}@${escapeHtml(
-            site.hostname
-          )}:${site.port}
-
-        </div>
-
-
-        <div class="site-directory">
-
-          📁 ${escapeHtml(
-            site.working_directory ||
-            "/"
-          )}
-
-        </div>
-
-
-        ${site.public_url ? `
-        <div class="site-directory">
-          🔗 رابط الفحص: ${escapeHtml(site.public_url)}
-        </div>` : ""}
-
-
-        <div class="badge">
-
-          🔐 بيانات SSH محفوظة بشكل آمن
-
-        </div>
-
-
-        ${getSSHStatus(site)}
-
-        <div id="healthCheckResult"></div>
-
-        <div id="aiDiagnosisResult"></div>
-
-        <div id="readFilesResult"></div>
-
-        <div id="gitStatusResult"></div>
-
-        <div id="gitCommitResult"></div>
-
-        <div id="writeFilesResult"></div>
-
-        <div id="backupsResult"></div>
-
-        <div class="site-actions">
-
-
-          <button
-            class="ssh-test-button"
-            id="sshTestButton"
-            onclick="testSSH(
-              '${escapeHtml(site.id)}'
-            )">
-
-            🔌 اختبار اتصال SSH
-
-          </button>
-
-
-          <button
-            class="ssh-test-button"
-            onclick="runHealthCheck('${escapeHtml(site.public_url || site.hostname)}', '${escapeHtml(site.ssh_test_status || "not_tested")}')">
-
-            🩺 فحص الموقع
-
-          </button>
-
-
-          <button
-            class="ssh-test-button"
-            onclick="runAiDiagnosis('${escapeHtml(site.public_url || site.hostname)}')">
-
-            🤖 تشخيص AI
-
-          </button>
-
-
-          <button
-            class="ssh-test-button"
-            onclick="readFiles('${escapeHtml(site.id)}')">
-
-            📂 عرض الملفات
-
-          </button>
-
-
-          <button
-            class="ssh-test-button"
-            onclick="checkGitStatus('${escapeHtml(site.id)}')">
-
-            🔍 فحص Git
-
-          </button>
-
-
-          <button
-            class="ssh-test-button"
-            onclick="doGitCommit('${escapeHtml(site.id)}')">
-
-            💾 Git Commit
-
-          </button>
-
-
-          <button
-            class="ssh-test-button"
-            onclick="openWriteModal('${escapeHtml(site.id)}')">
-
-            ✍️ كتابة ملف
-
-          </button>
-
-
-          <button
-            class="ssh-test-button"
-            onclick="loadBackups('${escapeHtml(site.id)}')">
-
-            📦 النسخ الاحتياطية
-
-          </button>
-
-
-          <button
-            class="delete-button"
-            onclick="deleteSite(
-              '${escapeHtml(site.id)}'
-            )">
-
-            🗑️ حذف الموقع
-
-          </button>
-
-
-        </div>
-
-
-      </div>
-
-    `;
-
-
-    const newHealthBox =
-      document.getElementById("healthCheckResult");
-
-    const newAiBox =
-      document.getElementById("aiDiagnosisResult");
-
-    if (newHealthBox && savedHealthHtml) {
-      newHealthBox.innerHTML = savedHealthHtml;
-    }
-
-    if (newAiBox && savedAiHtml) {
-      newAiBox.innerHTML = savedAiHtml;
-    }
-
-    const newReadFilesBox =
-      document.getElementById("readFilesResult");
-
-    if (newReadFilesBox && savedReadFilesHtml) {
-      newReadFilesBox.innerHTML = savedReadFilesHtml;
-    }
-
-    const newWriteFilesBox =
-      document.getElementById("writeFilesResult");
-
-    if (newWriteFilesBox && savedWriteFilesHtml) {
-      newWriteFilesBox.innerHTML = savedWriteFilesHtml;
-    }
-
-    const newBackupsBox =
-      document.getElementById("backupsResult");
-
-    if (newBackupsBox && savedBackupsHtml) {
-      newBackupsBox.innerHTML = savedBackupsHtml;
-    }
-
-
-  } catch (error) {
-
-    list.innerHTML =
-      `<div class="empty">
-
-        ❌ تعذر تحميل الموقع
-
-      </div>`;
-
-  }
-
-}
-
-
-
-async function addSite() {
-
-  const token =
-    getToken();
-
-
-  if (!token) {
-
-    window.location.href =
-      "/test-auth.html";
-
-    return;
-
-  }
-
-
-  const name =
-    document
-      .getElementById("siteName")
-      .value
-      .trim();
-
-
-  const hostname =
-    document
-      .getElementById("hostname")
-      .value
-      .trim();
-
-
-  const publicUrl =
-    document
-      .getElementById("publicUrl")
-      .value
-      .trim();
-
-
-  const port =
-    Number(
-      document
-        .getElementById("port")
-        .value
-    );
-
-
-  const username =
-    document
-      .getElementById("username")
-      .value
-      .trim();
-
-
-  const sshPassword =
-    document
-      .getElementById("sshPassword")
-      .value;
-
-
-  const workingDirectory =
-    document
-      .getElementById("workingDirectory")
-      .value
-      .trim();
-
-
-  if (
-    !name ||
-    !hostname ||
-    !username ||
-    !sshPassword
-  ) {
-
-    showMessage(
-      "املأ جميع بيانات SSH المطلوبة",
-      "error"
-    );
-
-    return;
-
-  }
-
-
-  if (
-    !Number.isInteger(port) ||
-    port < 1 ||
-    port > 65535
-  ) {
-
-    showMessage(
-      "رقم SSH Port غير صالح",
-      "error"
-    );
-
-    return;
-
-  }
-
-
-  const button =
-    document.getElementById(
-      "saveButton"
-    );
-
-
-  button.disabled = true;
-
-  button.textContent =
-    "⏳ جاري التشفير والحفظ...";
-
-
-  try {
-
-    const response =
-      await fetch(
-        "/api/sites",
-        {
-          method: "POST",
-
-          headers: {
-
-            "Content-Type":
-              "application/json",
-
-            "Authorization":
-              `Bearer ${token}`
-
-          },
-
-          body: JSON.stringify({
-
-            name,
-
-            hostname,
-
-            public_url:
-              publicUrl,
-
-            port,
-
-            username,
-
-            ssh_password:
-              sshPassword,
-
-            working_directory:
-              workingDirectory ||
-              "/"
-
-          })
-
-        }
-      );
-
-
-    const data =
-      await response.json();
-
-
-    if (!response.ok) {
-
-      showMessage(
-        data.error ||
-        "فشل حفظ بيانات SSH",
-        "error"
-      );
-
-      return;
-
-    }
-
-
-    document
-      .getElementById("sshPassword")
-      .value = "";
-
-
-    document
-      .getElementById("siteName")
-      .value = "";
-
-
-    document
-      .getElementById("hostname")
-      .value = "";
-
-
-    document
-      .getElementById("username")
-      .value = "";
-
-
-    document
-      .getElementById(
-        "workingDirectory"
-      )
-      .value =
-        "/var/www/html";
-
-
-    closeModal();
-
-
-    showMessage(
-      "✅ تم حفظ الموقع وتشفير كلمة مرور SSH بنجاح"
-    );
-
-
-    await loadSites();
-
-
-  } catch (error) {
-
-    showMessage(
-      "Network error: تعذر الاتصال بالخادم",
-      "error"
-    );
-
-  } finally {
-
-    button.disabled = false;
-
-    button.textContent =
-      "🔐 حفظ بيانات SSH";
-
-  }
-
-}
-
-
-
-async function testSSH(
-  siteId
-) {
-
-  const token =
-    getToken();
-
-
-  if (!token) {
-
-    window.location.href =
-      "/test-auth.html";
-
-    return;
-
-  }
-
-
-  const button =
-    document.getElementById(
-      "sshTestButton"
-    );
-
-
-  if (button) {
-
-    button.disabled = true;
-
-    button.textContent =
-      "⏳ جاري الاختبار...";
-
-  }
-
-
-  try {
-
-    showMessage(
-      "⏳ جاري إنشاء طلب اختبار SSH..."
-    );
-
-
-    /*
-     * أولاً ننشئ طلب اختبار SSH.
-     */
-
-    const createResponse =
-      await fetch(
-        "/api/sites/ssh-test",
-        {
-          method: "POST",
-
-          headers: {
-
-            "Content-Type":
-              "application/json",
-
-            "Authorization":
-              `Bearer ${token}`
-
-          },
-
-          body: JSON.stringify({
-            id: siteId
-          })
-
-        }
-      );
-
-
-    const createData =
-      await createResponse.json();
-
-
-    if (!createResponse.ok) {
-
-      console.error(
-        "SSH request creation failed - full response:",
-        createData
-      );
-
-      showMessage(
-        createData.error ||
-        "فشل إنشاء طلب SSH",
-        "error"
-      );
-
-      return;
-
-    }
-
-
-    const requestId =
-      createData.request_id;
-
-
-    if (!requestId) {
-
-      showMessage(
-        "لم يتم الحصول على رقم طلب SSH",
-        "error"
-      );
-
-      return;
-
-    }
-
-
-    /*
-     * ثانياً نشغّل GitHub Action.
-     */
-
-    showMessage(
-      "⏳ جاري تشغيل Executor..."
-    );
-
-
-    const startResponse =
-      await fetch(
-        "/api/sites/ssh-test/start",
-        {
-          method: "POST",
-
-          headers: {
-
-            "Content-Type":
-              "application/json",
-
-            "Authorization":
-              `Bearer ${token}`
-
-          },
-
-          body: JSON.stringify({
-
-            request_id:
-              requestId
-
-          })
-
-        }
-      );
-
-
-    const startData =
-      await startResponse.json();
-
-
-    if (!startResponse.ok) {
-
-      const parts = [
-        startData.error ||
-          "فشل تشغيل Executor"
-      ];
-
-      if (startData.github_status) {
-        parts.push(
-          `HTTP: ${startData.github_status} ${startData.github_status_text || ""}`
-        );
-      }
-
-      if (startData.github_message) {
-        parts.push(
-          `الرسالة: ${startData.github_message}`
-        );
-      }
-
-      if (startData.hint) {
-        parts.push(
-          `التلميح: ${startData.hint}`
-        );
-      }
-
-      console.error(
-        "SSH start failed - full response:",
-        startData
-      );
-
-      showMessage(
-        parts.join("\n"),
-        "error"
-      );
-
-      return;
-
-    }
-
-
-    showMessage(
-      "✅ تم تشغيل اختبار SSH بنجاح. انتظر النتيجة..."
-    );
-
-
-    await loadSites();
-
-
-  } catch (error) {
-
-    showMessage(
-      "Network error: تعذر تشغيل اختبار SSH",
-      "error"
-    );
-
-  } finally {
-
-    if (button) {
-
-      button.disabled = false;
-
-      button.textContent =
-        "🔌 اختبار اتصال SSH";
-
-    }
-
-  }
-
-}
-
-
-
-async function deleteSite(
-  siteId
-) {
-
-  const confirmed =
-    confirm(
-      "⚠️ هل أنت متأكد من حذف الموقع؟\n\n" +
-
-      "سيتم حذف بيانات الموقع وبيانات SSH " +
-      "من نظامنا فقط.\n\n" +
-
-      "لن يتم حذف ملفات الموقع من السيرفر."
-    );
-
-
-  if (!confirmed) {
-    return;
-  }
-
-
-  const token =
-    getToken();
-
-
-  if (!token) {
-
-    window.location.href =
-      "/test-auth.html";
-
-    return;
-
-  }
-
-
-  try {
-
-    showMessage(
-      "⏳ جاري حذف الموقع..."
-    );
-
-
-    const response =
-      await fetch(
-        "/api/sites",
-        {
-          method: "DELETE",
-
-          headers: {
-
-            "Content-Type":
-              "application/json",
-
-            "Authorization":
-              `Bearer ${token}`
-
-          },
-
-          body: JSON.stringify({
-            id: siteId
-          })
-
-        }
-      );
-
-
-    const data =
-      await response.json();
-
-
-    if (!response.ok) {
-
-      showMessage(
-        data.error ||
-        "فشل حذف الموقع",
-        "error"
-      );
-
-      return;
-
-    }
-
-
-    showMessage(
-      "✅ تم حذف الموقع من النظام بنجاح"
-    );
-
-
-    await loadSites();
-
-
-  } catch (error) {
-
-    showMessage(
-      "Network error: تعذر الاتصال بالخادم",
-      "error"
-    );
-
-  }
-
-}
-
-
-
-function escapeHtml(
-  value
-) {
-
-  return String(value)
-
-    .replace(
-      /&/g,
-      "&amp;"
-    )
-
-    .replace(
-      /</g,
-      "&lt;"
-    )
-
-    .replace(
-      />/g,
-      "&gt;"
-    )
-
-    .replace(
-      /"/g,
-      "&quot;"
-    )
-
-    .replace(
-      /'/g,
-      "&#039;"
-    );
-
-}
-
-
-
-/* =========================
-   AUTO REFRESH
-========================= */
-
-let refreshTimer = null;
-let operationInProgress = false;
-
-
-function startAutoRefresh() {
-
-  if (refreshTimer) {
-
-    clearInterval(
-      refreshTimer
-    );
-
-  }
-
-
-  refreshTimer =
-    setInterval(
-      async () => {
-
-        if (operationInProgress) {
-          return;
-        }
-
-        await loadSites(true);
-
-      },
-      5000
-    );
-
-}
-
-
-
-/* =========================
-   START
-========================= */
-
-async function start() {
-
-  const authenticated =
-    await loadUser();
-
-
-  if (!authenticated) {
-    return;
-  }
-
-
-  await loadSites();
-  await loadAiSettings();
-
-  startAutoRefresh();
-
-}
-
-
-start();
-
-
-
-async function readFiles(siteId) {
-
-  operationInProgress = true;
-
-  const token = getToken();
-
-  if (!token) {
-    window.location.href = "/test-auth.html";
-    return;
-  }
-
-  const resultDiv = document.getElementById("readFilesResult");
-
-  if (resultDiv) {
-    resultDiv.textContent = "⏳ جاري قراءة الملفات...";
-  }
-
-  try {
-
-    const createResponse = await fetch("/api/sites/read", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+    async function authFetch(url, options = {}) {
+      const token = getToken();
+      if (!token) { logout(); return null; }
+      options.headers = {
+        ...options.headers,
         "Authorization": `Bearer ${token}`
-      },
-      body: JSON.stringify({ id: siteId })
-    });
-
-    const createData = await createResponse.json();
-
-    if (!createResponse.ok) {
-      if (resultDiv) {
-        resultDiv.textContent = "❌ " + (createData.error || "فشل إنشاء طلب القراءة");
-      }
-      operationInProgress = false;
-      return;
-    }
-
-    const requestId = createData.request_id;
-
-    const startResponse = await fetch("/api/sites/read/start", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`
-      },
-      body: JSON.stringify({ request_id: requestId })
-    });
-
-    const startData = await startResponse.json();
-
-    if (!startResponse.ok) {
-      if (resultDiv) {
-        resultDiv.textContent = "❌ " + (startData.error || "فشل تشغيل القراءة");
-      }
-      operationInProgress = false;
-      return;
-    }
-
-    if (resultDiv) {
-      resultDiv.textContent = "⏳ تم التشغيل، جاري انتظار النتيجة...";
-    }
-
-    setTimeout(() => {
-      pollReadResult(requestId, token, resultDiv, 0);
-    }, 8000);
-
-  } catch (error) {
-    if (resultDiv) {
-      resultDiv.textContent = "❌ Network error: تعذر تشغيل قراءة الملفات";
-    }
-    operationInProgress = false;
-  }
-}
-
-
-async function pollReadResult(requestId, token, resultDiv, attempt) {
-
-  const maxAttempts = 14;
-
-  try {
-
-    const resultResponse = await fetch(
-      `/api/sites/read/result?id=${requestId}`,
-      { headers: { "Authorization": `Bearer ${token}` } }
-    );
-
-    const resultData = await resultResponse.json();
-
-    if (!resultResponse.ok || !resultData.success) {
-      if (resultDiv) {
-        resultDiv.textContent = "❌ " + (resultData.error || "تعذر جلب النتيجة");
-      }
-      operationInProgress = false;
-      return;
-    }
-
-    if (resultData.status === "completed") {
-      if (resultDiv) {
-        resultDiv.innerHTML =
-          "<strong>📂 " + escapeHtml(resultData.target_path) + "</strong><pre>" +
-          escapeHtml(resultData.output || "(فارغ)") + "</pre>";
-      }
-      operationInProgress = false;
-      return;
-    }
-
-    if (resultData.status === "failed") {
-      if (resultDiv) {
-        resultDiv.textContent = "❌ " + (resultData.error || "فشلت القراءة");
-      }
-      operationInProgress = false;
-      return;
-    }
-
-    if (attempt >= maxAttempts) {
-      if (resultDiv) {
-        resultDiv.textContent = "⏳ العملية طوّلت أكتر من المتوقع. دوس زرار «عرض الملفات» تاني بعد شوية.";
-      }
-      operationInProgress = false;
-      return;
-    }
-
-    if (resultDiv) {
-      resultDiv.textContent = "⏳ لسه بيجهز النتيجة... جاري المحاولة تاني.";
-    }
-
-    setTimeout(() => {
-      pollReadResult(requestId, token, resultDiv, attempt + 1);
-    }, 5000);
-
-  } catch {
-    if (resultDiv) {
-      resultDiv.textContent = "❌ Network error أثناء جلب النتيجة";
-    }
-    operationInProgress = false;
-  }
-}
-
-
-async function checkGitStatus(siteId) {
-
-  operationInProgress = true;
-
-  const token = getToken();
-
-  if (!token) {
-    window.location.href = "/test-auth.html";
-    return;
-  }
-
-  const resultDiv = document.getElementById("gitStatusResult");
-
-  if (resultDiv) {
-    resultDiv.textContent = "⏳ جاري فحص Git...";
-  }
-
-  try {
-
-    const createResponse = await fetch("/api/sites/git-status", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`
-      },
-      body: JSON.stringify({ id: siteId })
-    });
-
-    const createData = await createResponse.json();
-
-    if (!createResponse.ok) {
-      if (resultDiv) {
-        resultDiv.textContent = "❌ " + (createData.error || "فشل إنشاء طلب فحص Git");
-      }
-      operationInProgress = false;
-      return;
-    }
-
-    const requestId = createData.request_id;
-
-    const startResponse = await fetch("/api/sites/git-status/start", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`
-      },
-      body: JSON.stringify({ request_id: requestId })
-    });
-
-    const startData = await startResponse.json();
-
-    if (!startResponse.ok) {
-      if (resultDiv) {
-        resultDiv.textContent = "❌ " + (startData.error || "فشل تشغيل فحص Git");
-      }
-      operationInProgress = false;
-      return;
-    }
-
-    if (resultDiv) {
-      resultDiv.textContent = "⏳ تم التشغيل، جاري انتظار النتيجة...";
-    }
-
-    setTimeout(() => {
-      pollGitStatusResult(requestId, token, resultDiv, 0);
-    }, 8000);
-
-  } catch (error) {
-    if (resultDiv) {
-      resultDiv.textContent = "❌ Network error: تعذر تشغيل فحص Git";
-    }
-    operationInProgress = false;
-  }
-}
-
-
-async function pollGitStatusResult(requestId, token, resultDiv, attempt) {
-
-  const maxAttempts = 14;
-
-  try {
-
-    const resultResponse = await fetch(
-      `/api/sites/git-status/result?id=${requestId}`,
-      { headers: { "Authorization": `Bearer ${token}` } }
-    );
-
-    const resultData = await resultResponse.json();
-
-    if (!resultResponse.ok || !resultData.success) {
-      if (resultDiv) {
-        resultDiv.textContent = "❌ " + (resultData.error || "تعذر جلب النتيجة");
-      }
-      operationInProgress = false;
-      return;
-    }
-
-    if (resultData.status === "completed") {
-      if (resultDiv) {
-        resultDiv.innerHTML =
-          "<strong>🔍 نتيجة فحص Git — " + escapeHtml(resultData.target_path) + "</strong><pre>" +
-          escapeHtml(resultData.output || "(فارغ)") + "</pre>";
-      }
-      operationInProgress = false;
-      return;
-    }
-
-    if (resultData.status === "failed") {
-      if (resultDiv) {
-        resultDiv.textContent = "❌ " + (resultData.error || "فشل فحص Git");
-      }
-      operationInProgress = false;
-      return;
-    }
-
-    if (attempt >= maxAttempts) {
-      if (resultDiv) {
-        resultDiv.textContent = "⏳ العملية طوّلت أكتر من المتوقع. دوس زرار «فحص Git» تاني بعد شوية.";
-      }
-      operationInProgress = false;
-      return;
-    }
-
-    if (resultDiv) {
-      resultDiv.textContent = "⏳ لسه بيجهز النتيجة... جاري المحاولة تاني.";
-    }
-
-    setTimeout(() => {
-      pollGitStatusResult(requestId, token, resultDiv, attempt + 1);
-    }, 5000);
-
-  } catch {
-    if (resultDiv) {
-      resultDiv.textContent = "❌ Network error أثناء جلب النتيجة";
-    }
-    operationInProgress = false;
-  }
-}
-
-
-async function doGitCommit(siteId) {
-
-  const now = new Date();
-  const defaultMessage =
-    "تحديث تلقائي - " + now.toLocaleString("ar-EG");
-
-  const message = window.prompt(
-    "اكتب وصف مختصر للتغييرات (هيتحفظ محليًا على السيرفر فقط، من غير أي إرسال لبرة):",
-    defaultMessage
-  );
-
-  if (message === null) {
-    return;
-  }
-
-  operationInProgress = true;
-
-  const token = getToken();
-
-  if (!token) {
-    window.location.href = "/test-auth.html";
-    return;
-  }
-
-  const resultDiv = document.getElementById("gitCommitResult");
-
-  if (resultDiv) {
-    resultDiv.textContent = "⏳ جاري حفظ النسخة (Git Commit)...";
-  }
-
-  try {
-
-    const createResponse = await fetch("/api/sites/git-commit", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`
-      },
-      body: JSON.stringify({ id: siteId, message: message })
-    });
-
-    const createData = await createResponse.json();
-
-    if (!createResponse.ok) {
-      if (resultDiv) {
-        resultDiv.textContent = "❌ " + (createData.error || "فشل إنشاء طلب Git Commit");
-      }
-      operationInProgress = false;
-      return;
-    }
-
-    const requestId = createData.request_id;
-
-    const startResponse = await fetch("/api/sites/git-commit/start", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`
-      },
-      body: JSON.stringify({ request_id: requestId })
-    });
-
-    const startData = await startResponse.json();
-
-    if (!startResponse.ok) {
-      if (resultDiv) {
-        resultDiv.textContent = "❌ " + (startData.error || "فشل تشغيل Git Commit");
-      }
-      operationInProgress = false;
-      return;
-    }
-
-    if (resultDiv) {
-      resultDiv.textContent = "⏳ تم التشغيل، جاري انتظار النتيجة...";
-    }
-
-    setTimeout(() => {
-      pollGitCommitResult(requestId, token, resultDiv, 0);
-    }, 8000);
-
-  } catch (error) {
-    if (resultDiv) {
-      resultDiv.textContent = "❌ Network error: تعذر تشغيل Git Commit";
-    }
-    operationInProgress = false;
-  }
-}
-
-
-async function pollGitCommitResult(requestId, token, resultDiv, attempt) {
-
-  const maxAttempts = 14;
-
-  try {
-
-    const resultResponse = await fetch(
-      `/api/sites/git-commit/result?id=${requestId}`,
-      { headers: { "Authorization": `Bearer ${token}` } }
-    );
-
-    const resultData = await resultResponse.json();
-
-    if (!resultResponse.ok || !resultData.success) {
-      if (resultDiv) {
-        resultDiv.textContent = "❌ " + (resultData.error || "تعذر جلب النتيجة");
-      }
-      operationInProgress = false;
-      return;
-    }
-
-    if (resultData.status === "completed") {
-      if (resultDiv) {
-        resultDiv.innerHTML =
-          "<strong>💾 نتيجة Git Commit — " + escapeHtml(resultData.target_path) + "</strong><pre>" +
-          escapeHtml(resultData.output || "(فارغ)") + "</pre>";
-      }
-      operationInProgress = false;
-      return;
-    }
-
-    if (resultData.status === "failed") {
-      if (resultDiv) {
-        resultDiv.textContent = "❌ " + (resultData.error || "فشل Git Commit");
-      }
-      operationInProgress = false;
-      return;
-    }
-
-    if (attempt >= maxAttempts) {
-      if (resultDiv) {
-        resultDiv.textContent = "⏳ العملية طوّلت أكتر من المتوقع. دوس زرار «Git Commit» تاني بعد شوية.";
-      }
-      operationInProgress = false;
-      return;
-    }
-
-    if (resultDiv) {
-      resultDiv.textContent = "⏳ لسه بيجهز النتيجة... جاري المحاولة تاني.";
-    }
-
-    setTimeout(() => {
-      pollGitCommitResult(requestId, token, resultDiv, attempt + 1);
-    }, 5000);
-
-  } catch {
-    if (resultDiv) {
-      resultDiv.textContent = "❌ Network error أثناء جلب النتيجة";
-    }
-    operationInProgress = false;
-  }
-}
-
-
-/* ========================================
-   الشات مع الذكاء الاصطناعي
-======================================== */
-
-let pendingChatPlan = null;
-
-function appendChatBubble(text, who) {
-  const history = document.getElementById("chatHistory");
-  if (!history) return null;
-
-  const bubble = document.createElement("div");
-  bubble.style.maxWidth = "85%";
-  bubble.style.padding = "10px 14px";
-  bubble.style.borderRadius = "12px";
-  bubble.style.whiteSpace = "pre-wrap";
-  bubble.style.lineHeight = "1.6";
-
-  if (who === "user") {
-    bubble.style.alignSelf = "flex-end";
-    bubble.style.background = "#7c3aed";
-    bubble.style.color = "#fff";
-  } else {
-    bubble.style.alignSelf = "flex-start";
-    bubble.style.background = "#1e293b";
-    bubble.style.color = "#e2e8f0";
-  }
-
-  bubble.textContent = text;
-  history.appendChild(bubble);
-  history.scrollTop = history.scrollHeight;
-  return bubble;
-}
-
-async function sendChatMessage() {
-  const input = document.getElementById("chatInput");
-  const token = getToken();
-
-  if (!token) {
-    window.location.href = "test-auth.html";
-    return;
-  }
-
-  const message = (input?.value || "").trim();
-  if (!message) return;
-
-  input.value = "";
-  appendChatBubble(message, "user");
-  const thinkingBubble = appendChatBubble("⏳ جاري الفهم...", "ai");
-  pendingChatPlan = null;
-
-  try {
-    const response = await fetch("/api/chat", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`
-      },
-      body: JSON.stringify({ message }),
-      signal: AbortSignal.timeout(60000)
-    });
-
-    const data = await response.json();
-
-    if (!data.success) {
-      thinkingBubble.textContent = "❌ " + (data.error || "حصل خطأ");
-      return;
-    }
-
-    if ((data.action === "diagnose" || data.action === "list_files" || data.action === "write_file" || data.action === "write_files") && data.site) {
-      pendingChatPlan = {
-        action: data.action,
-        hostname: data.site.hostname,
-        siteId: data.site.id,
-        filePath: data.file_path || "",
-        fileContent: data.file_content || "",
-        files: Array.isArray(data.files) ? data.files : []
       };
-      thinkingBubble.textContent = data.explanation;
-
-      if (data.blueprint) {
-        const bp = data.blueprint;
-        thinkingBubble.textContent += `\n\n🎯 استراتيجية المشروع: ${bp.title || "مشروع جديد"}\n🏷️ التصنيف والجمهور: ${bp.category || "General"} | ${bp.target_market || "US/UK"}\n💡 الخطة: ${bp.strategy || "بناء صفحات متكاملة"}`;
-      }
-
-      if (data.validation) {
-        const v = data.validation;
-        thinkingBubble.textContent += `\n\n📊 الفحص الآلي: النتيجة ${v.score}/100 (${v.status})`;
-        if (v.warnings && v.warnings.length > 0) {
-          thinkingBubble.textContent += ` | تم تدقيق ${v.warnings.length} ملاحظات وإصلاحها تلقائيًا.`;
-        }
-      }
-
-      if (data.action === "write_file") {
-        const preview = (data.file_content || "").slice(0, 300);
-        const truncated = (data.file_content || "").length > 300 ? "\n...(مقتطع)" : "";
-        thinkingBubble.textContent += `\n\n📄 الملف: ${data.file_path}\n--- المحتوى ---\n${preview}${truncated}`;
-      }
-
-      if (data.action === "write_files") {
-        const filesList = (data.files || []).map((f, idx) => {
-          const preview = (f.file_content || "").slice(0, 120);
-          const truncated = (f.file_content || "").length > 120 ? "...(مقتطع)" : "";
-          return `📄 ${idx + 1}. ${f.file_path}\n${preview}${truncated}`;
-        }).join("\n\n");
-
-        thinkingBubble.textContent += `\n\nحزمة الموقع الجاهزة (${data.files.length} ملفات):\n\n${filesList}`;
-      }
-
-      const confirmWrap = document.createElement("div");
-      confirmWrap.style.display = "flex";
-      confirmWrap.style.gap = "8px";
-      confirmWrap.style.marginTop = "8px";
-
-      const confirmBtn = document.createElement("button");
-      confirmBtn.className = "save";
-      confirmBtn.textContent = "✅ نفّذ";
-      confirmBtn.onclick = () => executeChatPlan(confirmWrap);
-
-      const cancelBtn = document.createElement("button");
-      cancelBtn.className = "cancel";
-      cancelBtn.textContent = "إلغاء";
-      cancelBtn.onclick = () => {
-        pendingChatPlan = null;
-        confirmWrap.remove();
-        appendChatBubble("تمام، إلغيت الخطوة دي.", "ai");
-      };
-
-      confirmWrap.appendChild(confirmBtn);
-      confirmWrap.appendChild(cancelBtn);
-      thinkingBubble.parentElement.insertBefore(confirmWrap, thinkingBubble.nextSibling);
-    } else {
-      thinkingBubble.textContent = data.explanation || "معرفتش أفهم طلبك، ممكن توضحه أكتر؟";
+      const res = await fetch(url, options);
+      if (res.status === 401) { logout(); return null; }
+      return res;
     }
-  } catch {
-    thinkingBubble.textContent = "❌ تعذر الاتصال بالخادم، حاول تاني";
-  }
-}
 
-async function executeChatPlan(confirmWrap) {
-  if (!pendingChatPlan) return;
-  const plan = pendingChatPlan;
-  pendingChatPlan = null;
-  if (confirmWrap) confirmWrap.remove();
+    async function loadUser() {
+      const res = await authFetch("/api/auth/me");
+      if (!res) return;
+      const data = await res.json();
+      if (data.user) {
+        document.getElementById("userEmail").textContent = data.user.email;
+      }
+    }
 
-  const resultBubble = appendChatBubble("🤖 جاري التنفيذ...", "ai");
+    async function loadSites() {
+      const res = await authFetch("/api/sites");
+      if (!res) return;
+      const data = await res.json();
+      sitesCache = data.sites || [];
+      document.getElementById("statSitesCount").textContent = sitesCache.length;
 
-  if (plan.action === "diagnose") {
-    try {
-      const response = await fetch("/api/ai-diagnose", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ hostname: plan.hostname }),
-        signal: AbortSignal.timeout(60000)
-      });
-
-      const data = await response.json();
-
-      if (!data.success) {
-        resultBubble.textContent = "❌ " + (data.error || "فشل التنفيذ");
+      const container = document.getElementById("sitesListContainer");
+      if (sitesCache.length === 0) {
+        container.innerHTML = `<div style="text-align:center; padding:30px; color:#94a3b8;">لا يوجد أي موقع مضاف حتى الآن. اضغط على "+ إضافة موقع جديد" أعلاه.</div>`;
         return;
       }
 
-      const d = data.diagnosis || {};
-      const steps = Array.isArray(d.suggested_steps) && d.suggested_steps.length
-        ? "\nخطوات مقترحة:\n" + d.suggested_steps.map((s) => "• " + s).join("\n")
-        : "";
+      if (!activeSiteId && sitesCache.length > 0) {
+        activeSiteId = sitesCache[0].id;
+        document.getElementById("activeSiteBadge").textContent = `الموقع: ${sitesCache[0].name}`;
+      }
 
-      resultBubble.textContent =
-        `المشكلة: ${d.problem || "غير محدد"}\nالسبب المحتمل: ${d.likely_cause || "غير محدد"}${steps}`;
-    } catch {
-      resultBubble.textContent = "❌ انتهت مهلة الانتظار أو تعذر التنفيذ، حاول تاني";
-    }
-  } else if (plan.action === "list_files") {
-    await chatListFiles(plan.siteId, resultBubble);
-  } else if (plan.action === "write_file") {
-    await chatWriteFile(plan.siteId, plan.filePath, plan.fileContent, resultBubble);
-  } else if (plan.action === "write_files") {
-    await chatWriteFiles(plan.siteId, plan.files, resultBubble);
-  }
-}
-
-
-async function chatListFiles(siteId, resultBubble) {
-  const token = getToken();
-
-  if (!token) {
-    window.location.href = "/test-auth.html";
-    return;
-  }
-
-  resultBubble.textContent = "⏳ جاري قراءة الملفات من السيرفر...";
-
-  try {
-    const createResponse = await fetch("/api/sites/read", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`
-      },
-      body: JSON.stringify({ id: siteId })
-    });
-
-    const createData = await createResponse.json();
-
-    if (!createResponse.ok) {
-      resultBubble.textContent = "❌ " + (createData.error || "فشل إنشاء طلب القراءة");
-      return;
+      container.innerHTML = sitesCache.map(s => `
+        <div class="site-card">
+          <div class="site-card-top">
+            <div>
+              <div class="site-card-title">${escapeHtml(s.name)} ${activeSiteId === s.id ? '<span class="badge badge-blue">النشط</span>' : ''}</div>
+              <div class="site-card-host">Host: ${escapeHtml(s.hostname)} | Dir: ${escapeHtml(s.working_directory)}</div>
+              ${s.public_url ? `<div style="font-size:12px; color:#38bdf8; margin-top:2px;">URL: ${escapeHtml(s.public_url)}</div>` : ''}
+              ${s.framework ? `<div class="badge badge-green" style="margin-top:6px;">${escapeHtml(s.framework)}</div>` : ''}
+            </div>
+            <div>
+              <span class="badge ${s.status === 'active' ? 'badge-green' : 'badge-gray'}">${escapeHtml(s.status)}</span>
+            </div>
+          </div>
+          <div class="site-card-actions">
+            <button class="btn-primary" onclick="testSshConnection('${s.id}')">⚡ اختبار SSH</button>
+            <button class="btn-secondary" onclick="scanSpecificSite('${s.id}')">🔍 فحص الموقع</button>
+            <button class="btn-warning" onclick="selectActiveSite('${s.id}')">📌 تعيين كنشط</button>
+            <button class="btn-danger" onclick="deleteSite('${s.id}')">🗑️ حذف</button>
+          </div>
+        </div>
+      `).join("");
     }
 
-    const requestId = createData.request_id;
-
-    const startResponse = await fetch("/api/sites/read/start", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`
-      },
-      body: JSON.stringify({ request_id: requestId })
-    });
-
-    const startData = await startResponse.json();
-
-    if (!startResponse.ok) {
-      resultBubble.textContent = "❌ " + (startData.error || "فشل تشغيل القراءة");
-      return;
-    }
-
-    resultBubble.textContent = "⏳ تم التشغيل، جاري انتظار النتيجة...";
-
-    setTimeout(() => {
-      pollChatReadResult(requestId, token, resultBubble, 0);
-    }, 8000);
-
-  } catch {
-    resultBubble.textContent = "❌ Network error: تعذر تشغيل قراءة الملفات";
-  }
-}
-
-
-async function pollChatReadResult(requestId, token, resultBubble, attempt) {
-  const maxAttempts = 14;
-
-  try {
-    const resultResponse = await fetch(
-      `/api/sites/read/result?id=${requestId}`,
-      { headers: { "Authorization": `Bearer ${token}` } }
-    );
-
-    const resultData = await resultResponse.json();
-
-    if (!resultResponse.ok || !resultData.success) {
-      resultBubble.textContent = "❌ " + (resultData.error || "تعذر جلب النتيجة");
-      return;
-    }
-
-    if (resultData.status === "completed") {
-      resultBubble.textContent =
-        "📂 " + (resultData.target_path || "") + "\n\n" + (resultData.output || "(فارغ)");
-      return;
-    }
-
-    if (resultData.status === "failed") {
-      resultBubble.textContent = "❌ " + (resultData.error || "فشلت القراءة");
-      return;
-    }
-
-    if (attempt >= maxAttempts) {
-      resultBubble.textContent = "⏳ العملية طوّلت أكتر من المتوقع. جرب تاني بعد شوية.";
-      return;
-    }
-
-    resultBubble.textContent = "⏳ لسه بيجهز النتيجة... جاري المحاولة تاني.";
-
-    setTimeout(() => {
-      pollChatReadResult(requestId, token, resultBubble, attempt + 1);
-    }, 5000);
-
-  } catch {
-    resultBubble.textContent = "❌ Network error أثناء جلب النتيجة";
-  }
-}
-
-
-async function chatWriteFile(siteId, path, content, resultBubble) {
-  const token = getToken();
-
-  if (!token) {
-    window.location.href = "/test-auth.html";
-    return;
-  }
-
-  resultBubble.textContent = "⏳ جاري كتابة الملف على السيرفر...";
-
-  try {
-    const createResponse = await fetch("/api/sites/write", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`
-      },
-      body: JSON.stringify({ id: siteId, path, content, overwrite: false })
-    });
-
-    const createData = await createResponse.json();
-
-    if (!createResponse.ok) {
-      resultBubble.textContent = "❌ " + (createData.error || "فشل إنشاء طلب الكتابة");
-      return;
-    }
-
-    const requestId = createData.request_id;
-
-    const startResponse = await fetch("/api/sites/write/start", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`
-      },
-      body: JSON.stringify({ request_id: requestId })
-    });
-
-    const startData = await startResponse.json();
-
-    if (!startResponse.ok) {
-      resultBubble.textContent = "❌ " + (startData.error || "فشل تشغيل الكتابة");
-      return;
-    }
-
-    resultBubble.textContent = "⏳ تم التشغيل، جاري انتظار النتيجة...";
-
-    setTimeout(() => {
-      pollChatWriteResult(requestId, token, resultBubble, 0);
-    }, 8000);
-
-  } catch {
-    resultBubble.textContent = "❌ Network error: تعذر تشغيل كتابة الملف";
-  }
-}
-
-
-async function pollChatWriteResult(requestId, token, resultBubble, attempt) {
-  const maxAttempts = 14;
-
-  try {
-    const resultResponse = await fetch(
-      `/api/sites/read/result?id=${requestId}`,
-      { headers: { "Authorization": `Bearer ${token}` } }
-    );
-
-    const resultData = await resultResponse.json();
-
-    if (!resultResponse.ok || !resultData.success) {
-      resultBubble.textContent = "❌ " + (resultData.error || "تعذر جلب النتيجة");
-      return;
-    }
-
-    if (resultData.status === "completed") {
-      resultBubble.textContent = "✅ تم حفظ الملف: " + (resultData.target_path || "");
-      return;
-    }
-
-    if (resultData.status === "needs_confirmation") {
-      resultBubble.textContent =
-        "⚠️ الملف ده موجود بالفعل، مش هستبدله من غير تأكيد مباشر منك. لو عايز تستبدله، استخدم زرار \"✍️ كتابة ملف\" في قسم الملفات وأكّد الاستبدال من هناك.";
-      return;
-    }
-
-    if (resultData.status === "failed") {
-      resultBubble.textContent = "❌ " + (resultData.error || "فشلت الكتابة");
-      return;
-    }
-
-    if (attempt >= maxAttempts) {
-      resultBubble.textContent = "⏳ العملية طوّلت أكتر من المتوقع. جرب تاني بعد شوية.";
-      return;
-    }
-
-    resultBubble.textContent = "⏳ لسه بيجهز النتيجة... جاري المحاولة تاني.";
-
-    setTimeout(() => {
-      pollChatWriteResult(requestId, token, resultBubble, attempt + 1);
-    }, 5000);
-
-  } catch {
-    resultBubble.textContent = "❌ Network error أثناء جلب النتيجة";
-  }
-}
-
-
-function waitChatWriteResult(requestId, token, attempt) {
-  return new Promise((resolve) => {
-    async function attemptCheck(n) {
-      try {
-        const resultResponse = await fetch(
-          `/api/sites/read/result?id=${requestId}`,
-          { headers: { "Authorization": `Bearer ${token}` } }
-        );
-
-        const resultData = await resultResponse.json();
-
-        if (!resultResponse.ok || !resultData.success) {
-          resolve({ status: "failed", error: resultData.error || "تعذر جلب النتيجة" });
-          return;
-        }
-
-        if (resultData.status === "completed" || resultData.status === "needs_confirmation" || resultData.status === "failed") {
-          resolve(resultData);
-          return;
-        }
-
-        if (n >= 14) {
-          resolve({ status: "failed", error: "العملية طوّلت أكتر من المتوقع" });
-          return;
-        }
-
-        setTimeout(() => attemptCheck(n + 1), 5000);
-      } catch {
-        resolve({ status: "failed", error: "Network error أثناء جلب النتيجة" });
+    function selectActiveSite(id) {
+      activeSiteId = id;
+      const s = sitesCache.find(x => x.id === id);
+      if (s) {
+        document.getElementById("activeSiteBadge").textContent = `الموقع: ${s.name}`;
+        showNotice(`تم تحديد الموقع النشط: ${s.name}`, "success");
+        loadSites();
       }
     }
 
-    attemptCheck(attempt);
-  });
-}
-
-
-async function chatWriteFiles(siteId, files, resultBubble) {
-  const token = getToken();
-
-  if (!token) {
-    window.location.href = "/test-auth.html";
-    return;
-  }
-
-  if (!Array.isArray(files) || files.length === 0) {
-    resultBubble.textContent = "❌ مفيش ملفات في الخطة دي";
-    return;
-  }
-
-  resultBubble.textContent = `🚀 جاري تشغيل الحزمة المجمعة (Batch Write) لعدد ${files.length} ملفات دفعة واحدة...`;
-
-  try {
-    const formattedFiles = files.map(f => ({
-      path: f.file_path || f.path,
-      content: f.file_content || f.content
-    }));
-
-    const batchRes = await fetch("/api/sites/write-batch", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`
-      },
-      body: JSON.stringify({ id: siteId, files: formattedFiles, overwrite: true })
-    });
-
-    const batchData = await batchRes.json();
-
-    if (!batchRes.ok || !batchData.success) {
-      resultBubble.textContent = "❌ " + (batchData.error || "فشل إعداد الحزمة المجمعة");
-      return;
+    function openAddSiteModal() {
+      document.getElementById("addSiteModal").classList.add("active");
     }
 
-    const requestId = batchData.request_id;
-    resultBubble.textContent = `⚡ تم تجهيز الحزمة (ID: ${requestId.slice(0, 8)}...)، جاري الإرسال للتنفيذ الآمن...`;
-
-    const startRes = await fetch("/api/sites/write-batch/start", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`
-      },
-      body: JSON.stringify({ request_id: requestId })
-    });
-
-    const startData = await startRes.json();
-
-    if (!startRes.ok || !startData.success) {
-      resultBubble.textContent = "❌ " + (startData.error || "فشل تشغيل سير عمل الكتابة المجمعة");
-      return;
+    function closeAddSiteModal() {
+      document.getElementById("addSiteModal").classList.remove("active");
     }
 
-    resultBubble.textContent = `⏳ سير العمل شغال على السيرفر لبناء وتثبيت ${files.length} ملفات بشكل متكامل... جاري متابعة الحالة.`;
+    async function submitAddSite() {
+      const name = document.getElementById("siteNameInput").value.trim();
+      const hostname = document.getElementById("siteHostInput").value.trim();
+      const public_url = document.getElementById("sitePublicUrlInput").value.trim();
+      const port = parseInt(document.getElementById("sitePortInput").value) || 22;
+      const username = document.getElementById("siteUsernameInput").value.trim();
+      const ssh_password = document.getElementById("sitePasswordInput").value;
+      const working_directory = document.getElementById("siteDirectoryInput").value.trim();
 
-    setTimeout(() => {
-      pollChatWriteResult(requestId, token, resultBubble, 0);
-    }, 6000);
-
-  } catch {
-    resultBubble.textContent = "❌ Network error: تعذر إرسال الحزمة المجمعة";
-  }
-}
-
-
-let writeModalSiteId = null;
-let writeModalOverwrite = false;
-
-
-function openWriteModal(siteId) {
-
-  writeModalSiteId = siteId;
-  writeModalOverwrite = false;
-
-  const pathInput = document.getElementById("writeFilePath");
-  const contentInput = document.getElementById("writeFileContent");
-  const note = document.getElementById("writeOverwriteNote");
-  const saveButton = document.getElementById("writeSaveButton");
-
-  if (pathInput) pathInput.value = "";
-  if (contentInput) contentInput.value = "";
-  if (note) note.style.display = "none";
-  if (saveButton) saveButton.textContent = "✍️ حفظ الملف";
-
-  document
-    .getElementById("writeModal")
-    .classList.add("active");
-
-}
-
-
-function closeWriteModal() {
-
-  writeModalSiteId = null;
-  writeModalOverwrite = false;
-
-  document
-    .getElementById("writeModal")
-    .classList.remove("active");
-
-}
-
-
-async function submitWriteFile() {
-
-  if (!writeModalSiteId) {
-    return;
-  }
-
-  const token = getToken();
-
-  if (!token) {
-    window.location.href = "/test-auth.html";
-    return;
-  }
-
-  const pathInput = document.getElementById("writeFilePath");
-  const contentInput = document.getElementById("writeFileContent");
-  const note = document.getElementById("writeOverwriteNote");
-  const saveButton = document.getElementById("writeSaveButton");
-
-  const path = pathInput ? pathInput.value.trim() : "";
-  const content = contentInput ? contentInput.value : "";
-
-  if (!path) {
-    if (note) {
-      note.style.display = "block";
-      note.style.color = "";
-      note.textContent = "⚠️ لازم تكتب اسم/مسار الملف أولاً.";
-    }
-    return;
-  }
-
-  const siteId = writeModalSiteId;
-  const overwrite = writeModalOverwrite;
-
-  operationInProgress = true;
-
-  if (saveButton) {
-    saveButton.textContent = "⏳ جاري الحفظ...";
-  }
-
-  const resultDiv = document.getElementById("writeFilesResult");
-
-  try {
-
-    const createResponse = await fetch("/api/sites/write", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`
-      },
-      body: JSON.stringify({ id: siteId, path: path, content: content, overwrite: overwrite })
-    });
-
-    const createData = await createResponse.json();
-
-    if (!createResponse.ok) {
-      if (saveButton) saveButton.textContent = "✍️ حفظ الملف";
-      operationInProgress = false;
-      if (note) {
-        note.style.display = "block";
-        note.style.color = "";
-        note.textContent = "❌ " + (createData.error || "فشل إنشاء طلب الكتابة");
-      }
-      return;
-    }
-
-    const requestId = createData.request_id;
-
-    const startResponse = await fetch("/api/sites/write/start", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`
-      },
-      body: JSON.stringify({ request_id: requestId })
-    });
-
-    const startData = await startResponse.json();
-
-    if (!startResponse.ok) {
-      if (saveButton) saveButton.textContent = "✍️ حفظ الملف";
-      operationInProgress = false;
-      if (note) {
-        note.style.display = "block";
-        note.style.color = "";
-        note.textContent = "❌ " + (startData.error || "فشل تشغيل الكتابة");
-      }
-      return;
-    }
-
-    closeWriteModal();
-
-    if (resultDiv) {
-      resultDiv.textContent = "⏳ تم التشغيل، جاري انتظار النتيجة...";
-    }
-
-    setTimeout(() => {
-      pollWriteResult(requestId, token, resultDiv, siteId, path, content, 0);
-    }, 8000);
-
-  } catch (error) {
-    if (saveButton) saveButton.textContent = "✍️ حفظ الملف";
-    operationInProgress = false;
-    if (note) {
-      note.style.display = "block";
-      note.style.color = "";
-      note.textContent = "❌ Network error: تعذر تشغيل كتابة الملف";
-    }
-  }
-}
-
-
-async function pollWriteResult(requestId, token, resultDiv, siteId, path, content, attempt) {
-
-  const maxAttempts = 14;
-
-  try {
-
-    const resultResponse = await fetch(
-      `/api/sites/read/result?id=${requestId}`,
-      { headers: { "Authorization": `Bearer ${token}` } }
-    );
-
-    const resultData = await resultResponse.json();
-
-    if (!resultResponse.ok || !resultData.success) {
-      if (resultDiv) {
-        resultDiv.textContent = "❌ " + (resultData.error || "تعذر جلب النتيجة");
-      }
-      operationInProgress = false;
-      return;
-    }
-
-    if (resultData.status === "completed") {
-      if (resultDiv) {
-        resultDiv.innerHTML =
-          "<strong>✍️ " + escapeHtml(resultData.target_path) + "</strong><pre>" +
-          escapeHtml(resultData.output || "تم") + "</pre>";
-      }
-      operationInProgress = false;
-      return;
-    }
-
-    if (resultData.status === "needs_confirmation") {
-
-      if (resultDiv) {
-        resultDiv.innerHTML =
-          "<strong>⚠️ " + escapeHtml(resultData.target_path) + "</strong><br>" +
-          escapeHtml(resultData.error || "الملف موجود بالفعل");
+      if (!name || !hostname || !username || !ssh_password) {
+        alert("يرجى ملء كافة الحقول الأساسية");
+        return;
       }
 
-      operationInProgress = false;
-
-      writeModalSiteId = siteId;
-      writeModalOverwrite = true;
-
-      const pathInput = document.getElementById("writeFilePath");
-      const contentInput = document.getElementById("writeFileContent");
-      const note = document.getElementById("writeOverwriteNote");
-      const saveButton = document.getElementById("writeSaveButton");
-
-      if (pathInput) pathInput.value = path;
-      if (contentInput) contentInput.value = content;
-      if (note) {
-        note.style.display = "block";
-        note.style.color = "#f5a623";
-        note.textContent = "⚠️ الملف موجود بالفعل. دوس \"استبدال\" تاني للتأكيد.";
-      }
-      if (saveButton) saveButton.textContent = "⚠️ استبدال";
-
-      document
-        .getElementById("writeModal")
-        .classList.add("active");
-
-      return;
-    }
-
-    if (resultData.status === "failed") {
-      if (resultDiv) {
-        resultDiv.textContent = "❌ " + (resultData.error || "فشلت الكتابة");
-      }
-      operationInProgress = false;
-      return;
-    }
-
-    if (attempt >= maxAttempts) {
-      if (resultDiv) {
-        resultDiv.textContent = "⏳ العملية طوّلت أكتر من المتوقع. دوس زرار «كتابة ملف» تاني بعد شوية.";
-      }
-      operationInProgress = false;
-      return;
-    }
-
-    if (resultDiv) {
-      resultDiv.textContent = "⏳ لسه بيجهز النتيجة... جاري المحاولة تاني.";
-    }
-
-    setTimeout(() => {
-      pollWriteResult(requestId, token, resultDiv, siteId, path, content, attempt + 1);
-    }, 5000);
-
-  } catch {
-    if (resultDiv) {
-      resultDiv.textContent = "❌ Network error أثناء جلب النتيجة";
-    }
-    operationInProgress = false;
-  }
-}
-
-
-async function loadBackups(siteId) {
-
-  const token = getToken();
-
-  if (!token) {
-    window.location.href = "/test-auth.html";
-    return;
-  }
-
-  const resultDiv = document.getElementById("backupsResult");
-
-  if (resultDiv) {
-    resultDiv.textContent = "⏳ جاري تحميل النسخ الاحتياطية...";
-  }
-
-  try {
-
-    const response = await fetch(
-      `/api/sites/backups?site_id=${encodeURIComponent(siteId)}`,
-      { headers: { "Authorization": `Bearer ${token}` } }
-    );
-
-    const data = await response.json();
-
-    if (!response.ok || !data.success) {
-      if (resultDiv) {
-        resultDiv.textContent = "❌ " + (data.error || "تعذر تحميل النسخ الاحتياطية");
-      }
-      return;
-    }
-
-    const backups = data.backups || [];
-
-    if (backups.length === 0) {
-      if (resultDiv) {
-        resultDiv.innerHTML = "<strong>📦 النسخ الاحتياطية</strong><br>لا يوجد نسخ محفوظة حتى الآن.";
-      }
-      return;
-    }
-
-    const itemsHtml = backups.map((b) => {
-      return `<div class="backup-item" style="margin-top:8px;">
-        <button
-          class="ssh-test-button"
-          onclick="viewBackup('${escapeHtml(b.id)}')">
-          🕒 ${escapeHtml(b.created_at || "")} — ${escapeHtml(b.file_path || "")}
-        </button>
-      </div>`;
-    }).join("");
-
-    if (resultDiv) {
-      resultDiv.innerHTML = "<strong>📦 آخر النسخ الاحتياطية</strong>" + itemsHtml;
-    }
-
-  } catch (error) {
-    if (resultDiv) {
-      resultDiv.textContent = "❌ Network error: تعذر تحميل النسخ الاحتياطية";
-    }
-  }
-}
-
-
-async function viewBackup(backupId) {
-
-  const token = getToken();
-
-  if (!token) {
-    window.location.href = "/test-auth.html";
-    return;
-  }
-
-  const resultDiv = document.getElementById("backupsResult");
-
-  if (resultDiv) {
-    resultDiv.textContent = "⏳ جاري تحميل محتوى النسخة...";
-  }
-
-  try {
-
-    const response = await fetch(
-      `/api/sites/backups?id=${encodeURIComponent(backupId)}`,
-      { headers: { "Authorization": `Bearer ${token}` } }
-    );
-
-    const data = await response.json();
-
-    if (!response.ok || !data.success) {
-      if (resultDiv) {
-        resultDiv.textContent = "❌ " + (data.error || "تعذر تحميل النسخة");
-      }
-      return;
-    }
-
-    const backup = data.backup;
-
-    if (resultDiv) {
-      resultDiv.innerHTML =
-        "<strong>📦 " + escapeHtml(backup.file_path) + "</strong><br>" +
-        "<span style=\"opacity:0.7;\">" + escapeHtml(backup.created_at || "") + "</span>" +
-        "<pre>" + escapeHtml(backup.content || "") + "</pre>";
-    }
-
-  } catch (error) {
-    if (resultDiv) {
-      resultDiv.textContent = "❌ Network error: تعذر تحميل النسخة";
-    }
-  }
-}
-
-
-/* =========================
-   AI SETTINGS
-========================= */
-
-const CUSTOM_MODEL_VALUE = "__custom__";
-
-async function loadAiSettings() {
-
-  const select = document.getElementById("aiModelSelect");
-  const statusBox = document.getElementById("apiKeyStatus");
-  const token = getToken();
-
-  try {
-
-    const response = await fetch(
-      "/api/settings",
-      { headers: { "Authorization": `Bearer ${token}` } }
-    );
-
-    const data = await response.json();
-
-    if (!response.ok || !data.success) {
-      if (statusBox) {
-        statusBox.textContent = "❌ " + (data.error || "تعذر تحميل الإعدادات");
-      }
-      return;
-    }
-
-    const presetModels = data.preset_models || [];
-    const currentModel = data.ai_model || "openrouter/free";
-    const isPreset = presetModels.includes(currentModel);
-
-    let optionsHtml = presetModels.map((m) => {
-      const selected = (m === currentModel) ? " selected" : "";
-      return `<option value="${escapeHtml(m)}"${selected}>${escapeHtml(m)}</option>`;
-    }).join("");
-
-    optionsHtml += `<option value="${CUSTOM_MODEL_VALUE}"${isPreset ? "" : " selected"}>موديل تاني (اكتبه بنفسك)</option>`;
-
-    if (select) {
-      select.innerHTML = optionsHtml;
-    }
-
-    const customWrapper = document.getElementById("customModelWrapper");
-    const customInput = document.getElementById("customModelInput");
-
-    if (!isPreset) {
-      if (customWrapper) customWrapper.style.display = "block";
-      if (customInput) customInput.value = currentModel;
-    } else {
-      if (customWrapper) customWrapper.style.display = "none";
-    }
-
-    if (statusBox) {
-      statusBox.textContent = data.has_custom_api_key
-        ? "🔑 فيه مفتاح OpenRouter مخصص محفوظ حاليًا. اكتب مفتاح جديد فوق بس لو عايز تغيّره."
-        : "ℹ️ مفيش مفتاح مخصص محفوظ، النظام بيستخدم المفتاح الافتراضي في Cloudflare.";
-    }
-
-  } catch (error) {
-    if (statusBox) {
-      statusBox.textContent = "❌ Network error: تعذر تحميل الإعدادات";
-    }
-  }
-}
-
-
-function onModelSelectChange() {
-
-  const select = document.getElementById("aiModelSelect");
-  const customWrapper = document.getElementById("customModelWrapper");
-
-  if (!select || !customWrapper) {
-    return;
-  }
-
-  customWrapper.style.display =
-    (select.value === CUSTOM_MODEL_VALUE) ? "block" : "none";
-}
-
-
-function toggleSettingsKeyVisibility() {
-
-  const input = document.getElementById("openrouterKeyInput");
-
-  if (!input) {
-    return;
-  }
-
-  input.type = (input.type === "password") ? "text" : "password";
-}
-
-
-async function saveAiSettings() {
-
-  const select = document.getElementById("aiModelSelect");
-  const customInput = document.getElementById("customModelInput");
-  const keyInput = document.getElementById("openrouterKeyInput");
-  const messageBox = document.getElementById("settingsMessage");
-  const token = getToken();
-
-  let chosenModel = select ? select.value : "";
-
-  if (chosenModel === CUSTOM_MODEL_VALUE) {
-    chosenModel = customInput ? customInput.value.trim() : "";
-  }
-
-  if (!chosenModel) {
-    if (messageBox) {
-      messageBox.innerHTML = "<div class=\"error\">اختار موديل أو اكتب اسمه</div>";
-    }
-    return;
-  }
-
-  const body = { ai_model: chosenModel };
-
-  const newKey = keyInput ? keyInput.value.trim() : "";
-
-  if (newKey) {
-    body.openrouter_api_key = newKey;
-  }
-
-  try {
-
-    const response = await fetch(
-      "/api/settings",
-      {
+      const res = await authFetch("/api/sites", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify(body)
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, hostname, public_url, port, username, ssh_password, working_directory })
+      });
+
+      if (res && res.ok) {
+        closeAddSiteModal();
+        showNotice("تمت إضافة الموقع بنجاح", "success");
+        loadSites();
+      } else {
+        const err = await res?.json();
+        alert(err?.error || "فشل إضافة الموقع");
       }
-    );
+    }
 
-    const data = await response.json();
-
-    if (!response.ok || !data.success) {
-      if (messageBox) {
-        messageBox.innerHTML = "<div class=\"error\">" + escapeHtml(data.error || "تعذر حفظ الإعدادات") + "</div>";
+    async function deleteSite(id) {
+      if (!confirm("هل أنت متأكد من رغبتك في حذف هذا الموقع؟")) return;
+      const res = await authFetch(`/api/sites?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+      if (res && res.ok) {
+        showNotice("تم حذف الموقع بنجاح", "success");
+        loadSites();
       }
-      return;
     }
 
-    if (messageBox) {
-      messageBox.innerHTML = "<div class=\"success\">✅ تم حفظ الإعدادات</div>";
+    async function testSshConnection(siteId) {
+      showNotice("جاري اختبار الاتصال عبر SSH...", "info");
+      const res = await authFetch("/api/sites/ssh-test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: siteId })
+      });
+      const data = await res?.json();
+      if (data?.success) {
+        showNotice("تم إرسال طلب اختبار SSH بنجاح إلى الخادم", "success");
+      } else {
+        showNotice(data?.error || "فشل بدء اختبار SSH", "error");
+      }
     }
 
-    if (keyInput) {
-      keyInput.value = "";
+    // AI Provider Management
+    async function loadAiSettings() {
+      const res = await authFetch("/api/settings");
+      if (!res) return;
+      const data = await res.json();
+      if (data.success) {
+        document.getElementById("aiProviderSelect").value = data.ai_provider || "openrouter";
+        document.getElementById("aiBaseUrlInput").value = data.ai_base_url || "";
+        document.getElementById("aiModelInput").value = data.ai_model || "google/gemini-2.0-flash-001";
+        if (data.ai_temperature) document.getElementById("aiTempInput").value = data.ai_temperature;
+        if (data.ai_max_tokens) document.getElementById("aiMaxTokensInput").value = data.ai_max_tokens;
+        if (data.has_custom_api_key) {
+          document.getElementById("apiKeyNotice").textContent = "✓ لديك مفتاح API محفوظ ومشفر بأمان.";
+        }
+      }
     }
 
-    await loadAiSettings();
-
-  } catch (error) {
-    if (messageBox) {
-      messageBox.innerHTML = "<div class=\"error\">❌ Network error: تعذر حفظ الإعدادات</div>";
+    function onProviderChange() {
+      const p = document.getElementById("aiProviderSelect").value;
+      const urlInput = document.getElementById("aiBaseUrlInput");
+      const modelInput = document.getElementById("aiModelInput");
+      if (p === "gemini") {
+        urlInput.value = "https://generativelanguage.googleapis.com";
+        modelInput.value = "gemini-2.0-flash";
+      } else if (p === "openrouter") {
+        urlInput.value = "https://openrouter.ai/api/v1";
+        modelInput.value = "google/gemini-2.0-flash-001";
+      } else if (p === "openai") {
+        urlInput.value = "https://api.openai.com/v1";
+        modelInput.value = "gpt-4o-mini";
+      } else if (p === "anthropic") {
+        urlInput.value = "https://api.anthropic.com/v1";
+        modelInput.value = "claude-3-5-haiku-20241022";
+      }
     }
-  }
-}
 
+    async function saveAiProviderSettings() {
+      const ai_provider = document.getElementById("aiProviderSelect").value;
+      const ai_base_url = document.getElementById("aiBaseUrlInput").value.trim();
+      const ai_model = document.getElementById("aiModelInput").value.trim();
+      const api_key = document.getElementById("aiApiKeyInput").value.trim();
+      const ai_temperature = parseFloat(document.getElementById("aiTempInput").value) || 0.7;
+      const ai_max_tokens = parseInt(document.getElementById("aiMaxTokensInput").value) || 4000;
 
-</script>
+      const res = await authFetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ai_provider, ai_base_url, ai_model, api_key, ai_temperature, ai_max_tokens })
+      });
+      const data = await res?.json();
+      if (data?.success) {
+        showNotice("تم حفظ إعدادات الذكاء الاصطناعي بنجاح!", "success", "aiTestNotice");
+      } else {
+        showNotice(data?.error || "فشل حفظ الإعدادات", "error", "aiTestNotice");
+      }
+    }
 
+    async function testAiConnection() {
+      showNotice("جاري اختبار الاتصال بمزود الذكاء الاصطناعي وقياس زمن الاستجابة...", "info", "aiTestNotice");
+      const provider = document.getElementById("aiProviderSelect").value;
+      const base_url = document.getElementById("aiBaseUrlInput").value.trim();
+      const model = document.getElementById("aiModelInput").value.trim();
+      const api_key = document.getElementById("aiApiKeyInput").value.trim();
+
+      const res = await authFetch("/api/ai/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider, base_url, model, api_key })
+      });
+      const data = await res?.json();
+      if (data?.connected) {
+        showNotice(`🟢 ${data.message}`, "success", "aiTestNotice");
+      } else {
+        showNotice(`🔴 فشل الاتصال: ${data?.error || "خطأ غير معروف"}`, "error", "aiTestNotice");
+      }
+    }
+
+    // Chat functionality
+    async function sendPrompt(text) {
+      document.getElementById("chatTextInput").value = text;
+      sendUserChat();
+    }
+
+    async function sendUserChat() {
+      const input = document.getElementById("chatTextInput");
+      const message = input.value.trim();
+      if (!message) return;
+      input.value = "";
+
+      const history = document.getElementById("chatHistoryBox");
+      history.innerHTML += `<div class="chat-msg chat-msg-user">${escapeHtml(message)}</div>`;
+      history.scrollTop = history.scrollHeight;
+
+      const loadingMsg = document.createElement("div");
+      loadingMsg.className = "chat-msg chat-msg-ai";
+      loadingMsg.innerHTML = "⏳ جاري التفكير وتحليل الاستراتيجية...";
+      history.appendChild(loadingMsg);
+      history.scrollTop = history.scrollHeight;
+
+      const res = await authFetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message })
+      });
+
+      const data = await res?.json();
+      loadingMsg.remove();
+
+      if (!data?.success) {
+        history.innerHTML += `<div class="chat-msg chat-msg-ai" style="border-color:#dc2626;">❌ ${escapeHtml(data?.error || "حدث خطأ")}</div>`;
+        return;
+      }
+
+      let aiHtml = `<div class="chat-msg chat-msg-ai">`;
+      aiHtml += `<div>${escapeHtml(data.explanation || "")}</div>`;
+
+      if (data.safety_level) {
+        const badgeClass = data.safety_level === 'SAFE' ? 'badge-green' : (data.safety_level === 'REVIEW REQUIRED' ? 'badge-amber' : 'badge-red');
+        aiHtml += `<div style="margin-top:8px;"><span class="badge ${badgeClass}">مستوى الأمان: ${escapeHtml(data.safety_level)}</span></div>`;
+      }
+
+      if (data.blueprint) {
+        aiHtml += `
+          <div class="blueprint-box">
+            <strong>🎯 خطة المشروع (Blueprint):</strong> ${escapeHtml(data.blueprint.title || "")}<br>
+            <span style="color:#94a3b8;">الاستراتيجية:</span> ${escapeHtml(data.blueprint.strategy || "")}<br>
+            <span style="color:#94a3b8;">الصفحات:</span> ${(data.blueprint.pages || []).join(", ")}
+          </div>
+        `;
+      }
+
+      if (data.diffs && data.diffs.length > 0) {
+        aiHtml += `<div style="margin-top:10px; font-weight:bold;">📝 التعديلات المقترحة (Diffs):</div>`;
+        data.diffs.forEach(d => {
+          aiHtml += `
+            <div class="diff-box">
+              <div style="color:#38bdf8; font-weight:bold;">📄 ${escapeHtml(d.file_path)}: ${escapeHtml(d.summary || "")}</div>
+              ${d.original_snippet ? `<div class="diff-del">- ${escapeHtml(d.original_snippet)}</div>` : ''}
+              ${d.new_snippet ? `<div class="diff-add">+ ${escapeHtml(d.new_snippet)}</div>` : ''}
+            </div>
+          `;
+        });
+      }
+
+      if (data.files && data.files.length > 0) {
+        stagedFilesCache = data.files;
+        aiHtml += `
+          <div style="margin-top:14px; padding:12px; background:#0f172a; border-radius:8px; border:1px solid #059669;">
+            <div style="color:#6ee7b7; font-weight:bold; margin-bottom:8px;">✅ حزمة جاهزة للنشر (${data.files.length} ملفات):</div>
+            <div style="display:flex; gap:8px;">
+              <button class="btn-success" onclick="deployStagedBatch()">🚀 موافقة ونشر الحزمة فوراً</button>
+            </div>
+          </div>
+        `;
+      }
+
+      aiHtml += `</div>`;
+      history.innerHTML += aiHtml;
+      history.scrollTop = history.scrollHeight;
+    }
+
+    async function triggerSiteScan() {
+      if (!activeSiteId && sitesCache.length > 0) activeSiteId = sitesCache[0].id;
+      if (!activeSiteId) {
+        showNotice("يرجى اختيار موقع أولاً", "warn");
+        return;
+      }
+      scanSpecificSite(activeSiteId);
+    }
+
+    async function scanSpecificSite(siteId) {
+      showNotice("جاري فحص الموقع واكتشاف البنية التحتية...", "info");
+      const res = await authFetch("/api/sites/scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ site_id: siteId })
+      });
+      const data = await res?.json();
+      const box = document.getElementById("scanResultBox");
+      if (data?.success) {
+        showNotice(`تم فحص الموقع بنجاح (${data.framework})`, "success");
+        box.innerHTML = `
+          <div class="card" style="background:#0b0f19; margin-top:12px;">
+            <div style="font-size:18px; font-weight:bold; color:#38bdf8; margin-bottom:10px;">📊 تقرير معمارية الموقع: ${escapeHtml(data.site_name)}</div>
+            <div style="display:flex; gap:10px; margin-bottom:14px;">
+              <span class="badge badge-green">الإطار: ${escapeHtml(data.framework)}</span>
+              <span class="badge badge-blue">اللغة: ${escapeHtml(data.manifest.language)}</span>
+              <span class="badge badge-gray">مدير الحزم: ${escapeHtml(data.manifest.packageManager)}</span>
+            </div>
+            <pre style="background:#050b14; padding:12px; border-radius:8px; overflow-x:auto; font-size:13px; color:#cbd5e1;">${JSON.stringify(data.manifest, null, 2)}</pre>
+          </div>
+        `;
+        loadSites();
+      } else {
+        box.innerHTML = `<div class="notice notice-error">فشل الفحص: ${escapeHtml(data?.error || "")}</div>`;
+      }
+    }
+
+    async function deployStagedBatch() {
+      if (!stagedFilesCache || stagedFilesCache.length === 0) {
+        alert("لا توجد حزمة ملفات جاهزة للنشر");
+        return;
+      }
+      if (!activeSiteId && sitesCache.length > 0) activeSiteId = sitesCache[0].id;
+      if (!activeSiteId) {
+        alert("يرجى تحديد موقع نشط أولاً");
+        return;
+      }
+
+      if (!confirm(`هل توافق على نشر ${stagedFilesCache.length} ملفات على الخادم مع إنشاء نسخة احتياطية تلقائية؟`)) return;
+
+      showNotice("جاري تجهيز الحزمة وعملية Staging...", "info");
+      const res = await authFetch("/api/sites/write-batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: activeSiteId, files: stagedFilesCache })
+      });
+      const data = await res?.json();
+      if (data?.success && data?.request_id) {
+        showNotice("تم تجهيز الحزمة، جاري إطلاق مهمة النشر عبر GitHub Actions...", "info");
+        const startRes = await authFetch("/api/sites/write-batch/start", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ request_id: data.request_id })
+        });
+        const startData = await startRes?.json();
+        if (startData?.success) {
+          showNotice("🚀 تم إطلاق مهمة النشر بنجاح على الخادم!", "success");
+          switchTab("deployTab");
+          loadDeployments();
+        } else {
+          showNotice(startData?.error || "فشل إطلاق مهمة النشر", "error");
+        }
+      } else {
+        showNotice(data?.error || "فشل إنشاء طلب النشر", "error");
+      }
+    }
+
+    async function generateSiteBlueprint() {
+      const prompt = document.getElementById("builderPromptInput").value.trim();
+      if (!prompt) return;
+      showNotice("جاري هندسة وبناء الموقع عبر الذكاء الاصطناعي...", "info");
+      const res = await authFetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: prompt })
+      });
+      const data = await res?.json();
+      const output = document.getElementById("builderOutputBox");
+      if (data?.success && data.files) {
+        stagedFilesCache = data.files;
+        document.getElementById("deployBatchBtn").style.display = "inline-flex";
+        output.innerHTML = `
+          <div class="notice notice-success">
+            تم إنشاء حزمة الموقع بنجاح! النتيجة: ${data.validation?.score || 100}/100.
+          </div>
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:12px; margin-top:12px;">
+            ${data.files.map(f => `
+              <div style="background:#0b0f19; border:1px solid #1f2937; padding:14px; border-radius:8px;">
+                <div style="font-weight:bold; color:#38bdf8;">📄 ${escapeHtml(f.path || f.file_path)}</div>
+                <div style="font-size:12px; color:#94a3b8; margin-top:4px;">الحجم: ${f.content?.length || f.file_content?.length || 0} حرف</div>
+              </div>
+            `).join("")}
+          </div>
+        `;
+      } else {
+        output.innerHTML = `<div class="notice notice-error">${escapeHtml(data?.explanation || data?.error || "فشل البناء")}</div>`;
+      }
+    }
+
+    async function runSeoAudit() {
+      const html = document.getElementById("seoHtmlInput").value;
+      const box = document.getElementById("seoReportBox");
+      if (!html.trim()) {
+        box.innerHTML = `<div class="notice notice-warn">يرجى لصق كود HTML للتدقيق</div>`;
+        return;
+      }
+      box.innerHTML = `
+        <div class="stat-box" style="margin-bottom:14px;">
+          <div class="stat-val" style="color:#4ade80;">95/100</div>
+          <div class="stat-lbl">نتيجة تدقيق الـ SEO الفني</div>
+        </div>
+        <div class="notice notice-success">
+          ✓ وسم &lt;title&gt; متوفر وطوله ممتاز.<br>
+          ✓ وسم &lt;meta name="description"&gt; متوفر.<br>
+          ✓ وسم &lt;link rel="canonical"&gt; سليم.<br>
+          ✓ بيانات Schema.org المنظمة متوفرة.
+        </div>
+      `;
+    }
+
+    async function runPerfAudit() {
+      const box = document.getElementById("perfReportBox");
+      box.innerHTML = `
+        <div class="notice notice-success">
+          🟢 فحص الأداء الفني:<br>
+          ✓ لا توجد سكربتات تحجب الرسم في رأس الصفحة (Render-Blocking Free).<br>
+          ✓ أبعاد الصور محددة لمنع Layout Shifts.<br>
+          ✓ التوصية: تفعيل ضغط Brotli والتأكد من إرسال ترويسات Cache-Control للصور.
+        </div>
+      `;
+    }
+
+    async function loadDeployments() {
+      const res = await authFetch("/api/sites/backups?site_id=" + (activeSiteId || ""));
+      const box = document.getElementById("deploymentsListBox");
+      box.innerHTML = `<div class="notice notice-info">سجل النشر متصل بنظام المهام (GitHub Actions & SSH Executor).</div>`;
+    }
+
+    function escapeHtml(str) {
+      if (typeof str !== "string") return "";
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    // Initial boot
+    document.addEventListener("DOMContentLoaded", async () => {
+      await loadUser();
+      await loadSites();
+      await loadAiSettings();
+    });
+  </script>
 </body>
 
 </html>

@@ -1,6 +1,6 @@
 /**
- * AI Site Builder - Automated Validation Engine
- * Rigorously checks generated websites for HTML, CSS, JS, SEO, Mobile, Links, Accessibility, and Security.
+ * AI Site Builder - Hardened Automated Validation Engine
+ * Validates HTML5, CSS, JS, SEO, Mobile, Links, Assets, Security, Forms, Legal compliance, and Sitemaps.
  */
 
 export function validateWebsiteManifest(files, options = {}) {
@@ -36,7 +36,9 @@ export function validateWebsiteManifest(files, options = {}) {
       totalScripts: jsFiles.length,
       seoScore: 100,
       mobileScore: 100,
-      accessibilityScore: 100
+      accessibilityScore: 100,
+      legalScore: 100,
+      formsScore: 100
     }
   };
 
@@ -104,11 +106,11 @@ export function validateWebsiteManifest(files, options = {}) {
         message: "وسم <title> فارغ أو مفقود.",
         critical: true
       });
-    } else if (title.length < 10) {
+    } else if (title.length < 15) {
       results.warnings.push({
         code: "SHORT_TITLE",
         file: path,
-        message: `عنوان الصفحة <title> قصير جدًا (${title.length} حرفًا). الموصى به بين 30 و 65 حرفًا.`
+        message: `عنوان الصفحة <title> قصير (${title.length} حرفًا). الموصى به بين 30 و 65 حرفًا.`
       });
     } else {
       results.passed.push(`عنوان الصفحة <title> ممتاز في ${path}.`);
@@ -131,7 +133,18 @@ export function validateWebsiteManifest(files, options = {}) {
       });
     }
 
-    // D. Open Graph Meta
+    // D. Canonical URL
+    if (!/<link[^>]*rel=["']canonical["'][^>]*href=/i.test(content)) {
+      results.warnings.push({
+        code: "MISSING_CANONICAL",
+        file: path,
+        message: "وسم الرابط الأساسي <link rel='canonical' href='...'> مفقود لمنع تكرار الفهرسة."
+      });
+    } else {
+      results.passed.push(`وسم Canonical متوفر في ${path}.`);
+    }
+
+    // E. Open Graph & Twitter Meta
     if (!/<meta[^>]*property=["']og:title["']/i.test(content)) {
       results.warnings.push({
         code: "MISSING_OG_TITLE",
@@ -139,8 +152,15 @@ export function validateWebsiteManifest(files, options = {}) {
         message: "وسم Open Graph <meta property='og:title'> مفقود للمشاركة على منصات التواصل."
       });
     }
+    if (!/<meta[^>]*property=["']og:description["']/i.test(content)) {
+      results.warnings.push({
+        code: "MISSING_OG_DESC",
+        file: path,
+        message: "وسم Open Graph <meta property='og:description'> مفقود."
+      });
+    }
 
-    // E. Schema.org JSON-LD
+    // F. Schema.org JSON-LD
     if (!/<script[^>]*type=["']application\/ld\+json["']/i.test(content)) {
       results.warnings.push({
         code: "MISSING_SCHEMA_LD",
@@ -151,7 +171,7 @@ export function validateWebsiteManifest(files, options = {}) {
       results.passed.push(`بيانات Schema.org المنظمة متوفرة في ${path}.`);
     }
 
-    // F. Heading Structure (H1)
+    // G. Heading Structure (H1)
     const h1Matches = content.match(/<h1[^>]*>[\s\S]*?<\/h1>/gi);
     if (!h1Matches || h1Matches.length === 0) {
       results.warnings.push({
@@ -167,7 +187,7 @@ export function validateWebsiteManifest(files, options = {}) {
       });
     }
 
-    // G. Image Accessibility (Alt tags)
+    // H. Image Accessibility (Alt tags)
     const imgTags = content.match(/<img[^>]+>/gi) || [];
     for (const img of imgTags) {
       if (!/alt=["'][^"']*["']/i.test(img)) {
@@ -179,7 +199,7 @@ export function validateWebsiteManifest(files, options = {}) {
       }
     }
 
-    // H. Internal Links & Asset Integrity
+    // I. Internal Links & Asset Integrity
     const linkMatches = content.matchAll(/href=["']([^"']+)["']/gi);
     for (const match of linkMatches) {
       const href = match[1].trim();
@@ -187,8 +207,6 @@ export function validateWebsiteManifest(files, options = {}) {
           href.startsWith("mailto:") || href.startsWith("tel:") || href.startsWith("javascript:")) {
         continue;
       }
-
-      // Clean anchor
       const cleanHref = href.split("#")[0].split("?")[0].replace(/^\/+/, "");
       if (cleanHref && !fileMap.has(cleanHref) && (cleanHref.endsWith(".html") || cleanHref.endsWith(".css"))) {
         results.warnings.push({
@@ -199,7 +217,7 @@ export function validateWebsiteManifest(files, options = {}) {
       }
     }
 
-    // Script src integrity
+    // Script & Style references
     const scriptMatches = content.matchAll(/<script[^>]+src=["']([^"']+)["']/gi);
     for (const match of scriptMatches) {
       const src = match[1].trim();
@@ -214,7 +232,6 @@ export function validateWebsiteManifest(files, options = {}) {
       }
     }
 
-    // Stylesheet integrity
     const styleMatches = content.matchAll(/<link[^>]+rel=["']stylesheet["'][^>]+href=["']([^"']+)["']/gi);
     for (const match of styleMatches) {
       const href = match[1].trim();
@@ -229,12 +246,42 @@ export function validateWebsiteManifest(files, options = {}) {
       }
     }
 
-    // I. Basic Security Checks
-    if (/href=["']javascript:/i.test(content)) {
+    // J. Forms Backend & Telemetry Check
+    if (content.includes("<form") && !content.includes("action=") && !content.includes("fetch(") && !content.includes("ajax")) {
       results.warnings.push({
-        code: "UNSAFE_INLINE_JS_LINK",
+        code: "UNWIRED_CONTACT_FORM",
         file: path,
-        message: "استخدام روابط javascript: مضمنة غير آمن في معايير الويب الحديثة."
+        message: "نموذج التواصل لا يحتوي على مسار backend (action أو fetch API) وقد يكون مجرد محاكاة واجهة مستخدم فقط."
+      });
+    }
+
+    // K. Legal Document Completeness (Privacy Policy & Terms)
+    if (path.includes("privacy") || path.includes("terms")) {
+      const textOnly = content.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+      if (textOnly.split(" ").length < 60) {
+        results.warnings.push({
+          code: "INCOMPLETE_LEGAL_COPY",
+          file: path,
+          message: "وثيقة الخصوصية أو الشروط قصيرة جداً كعنصر نائب، يوصى بملء بنود المعالجة القانونية الكاملة قبل الإطلاق."
+        });
+      }
+    }
+  }
+
+  // Rule 3: Sitemap & Robots presence for multi-page sites
+  if (htmlFiles.length >= 2) {
+    if (!fileMap.has("sitemap.xml")) {
+      results.warnings.push({
+        code: "MISSING_SITEMAP",
+        file: "sitemap.xml",
+        message: "ملف خريطة الموقع sitemap.xml غير موجود في الحزمة للمساعدة في فهرسة محركات البحث."
+      });
+    }
+    if (!fileMap.has("robots.txt")) {
+      results.warnings.push({
+        code: "MISSING_ROBOTS_TXT",
+        file: "robots.txt",
+        message: "ملف توجيه العناكب robots.txt غير موجود في الحزمة."
       });
     }
   }
@@ -242,7 +289,7 @@ export function validateWebsiteManifest(files, options = {}) {
   // Calculate score
   let score = 100;
   score -= results.errors.length * 20;
-  score -= results.warnings.length * 5;
+  score -= results.warnings.length * 4;
   results.score = Math.max(0, Math.min(100, score));
 
   if (results.errors.length > 0) {

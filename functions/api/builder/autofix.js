@@ -1,5 +1,5 @@
 /**
- * AI Site Builder - Auto Fix Engine
+ * AI Site Builder - Hardened Auto Fix Engine
  * Performs deterministic, safe, automated repairs on website files to resolve validation warnings & errors.
  */
 
@@ -24,7 +24,7 @@ export function autoFixWebsiteManifest(files, options = {}) {
     const fileMap = new Map();
     currentFiles.forEach((f) => fileMap.set(f.path, f.content));
 
-    // Check for missing referenced css/js files and auto-create them if missing
+    // 1. Auto-create missing referenced css/style.css
     if (!fileMap.has("css/style.css") && currentFiles.some((f) => f.content.includes("css/style.css"))) {
       currentFiles.push({
         path: "css/style.css",
@@ -63,13 +63,13 @@ footer { background: var(--dark); color: #94a3b8; padding: 3rem 0; text-align: c
       modifiedInCycle = true;
     }
 
+    // 2. Auto-create missing referenced js/main.js
     if (!fileMap.has("js/main.js") && currentFiles.some((f) => f.content.includes("js/main.js"))) {
       currentFiles.push({
         path: "js/main.js",
         content: `// Interactive features & Mobile navigation
 document.addEventListener('DOMContentLoaded', () => {
   console.log('Site initialized successfully.');
-  // Smooth scroll
   document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     anchor.addEventListener('click', function (e) {
       const target = document.querySelector(this.getAttribute('href'));
@@ -85,6 +85,24 @@ document.addEventListener('DOMContentLoaded', () => {
       modifiedInCycle = true;
     }
 
+    // 3. Auto-generate sitemap.xml if missing and multiple pages exist
+    const htmlPageList = currentFiles.filter(f => f.path.endsWith(".html"));
+    if (htmlPageList.length >= 2 && !fileMap.has("sitemap.xml")) {
+      const urls = htmlPageList.map(p => `  <url>\n    <loc>https://example.com/${p.path === "index.html" ? "" : p.path}</loc>\n    <changefreq>weekly</changefreq>\n    <priority>${p.path === "index.html" ? "1.0" : "0.8"}</priority>\n  </url>`).join("\n");
+      const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>`;
+      currentFiles.push({ path: "sitemap.xml", content: sitemapXml });
+      repairLogs.push("تم إنشاء ملف sitemap.xml القياسي تلقائيًا.");
+      modifiedInCycle = true;
+    }
+
+    // 4. Auto-generate robots.txt if missing and multiple pages exist
+    if (htmlPageList.length >= 2 && !fileMap.has("robots.txt")) {
+      const robotsTxt = `User-agent: *\nAllow: /\n\nSitemap: https://example.com/sitemap.xml`;
+      currentFiles.push({ path: "robots.txt", content: robotsTxt });
+      repairLogs.push("تم إنشاء ملف robots.txt القياسي تلقائيًا.");
+      modifiedInCycle = true;
+    }
+
     // Process each HTML file
     currentFiles = currentFiles.map((file) => {
       if (!file.path.endsWith(".html") && !file.path.endsWith(".htm")) {
@@ -94,52 +112,67 @@ document.addEventListener('DOMContentLoaded', () => {
       let content = file.content;
       let fileModified = false;
 
-      // 1. DOCTYPE
+      // DOCTYPE
       if (!/<!doctype\s+html>/i.test(content)) {
         content = "<!DOCTYPE html>\n" + content;
         repairLogs.push(`إضافة <!DOCTYPE html> في ${file.path}`);
         fileModified = true;
       }
 
-      // 2. HTML Lang
+      // HTML Lang
       if (!/<html[^>]*lang=/i.test(content)) {
         content = content.replace(/<html/i, '<html lang="en"');
         repairLogs.push(`إضافة خاصية lang="en" في ${file.path}`);
         fileModified = true;
       }
 
-      // 3. Ensure <head> tag exists
+      // Ensure <head> tag exists
       if (!/<head>/i.test(content) && content.includes("<html")) {
         content = content.replace(/<html[^>]*>/i, "$&\n<head>\n</head>");
         fileModified = true;
       }
 
-      // 4. Viewport Meta
+      // Viewport Meta
       if (!/<meta[^>]*name=["']viewport["']/i.test(content)) {
         content = content.replace(/<head[^>]*>/i, '$&\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">');
         repairLogs.push(`إصلاح وسم التجاوب <meta name="viewport"> في ${file.path}`);
         fileModified = true;
       }
 
-      // 5. Charset Meta
+      // Charset Meta
       if (!/<meta[^>]*charset=/i.test(content)) {
         content = content.replace(/<head[^>]*>/i, '$&\n  <meta charset="UTF-8">');
         repairLogs.push(`إصلاح وسم الترميز <meta charset="UTF-8"> في ${file.path}`);
         fileModified = true;
       }
 
-      // 6. Schema.org JSON-LD
+      // Canonical URL Link
+      if (!/<link[^>]*rel=["']canonical["']/i.test(content) && content.includes("</head>")) {
+        const canonicalUrl = `https://example.com/${file.path === "index.html" ? "" : file.path}`;
+        content = content.replace(/<\/head>/i, `  <link rel="canonical" href="${canonicalUrl}">\n</head>`);
+        repairLogs.push(`إضافة وسم <link rel="canonical"> في ${file.path}`);
+        fileModified = true;
+      }
+
+      // OpenGraph Metadata
+      const titleMatch = content.match(/<title[^>]*>(.*?)<\/title>/i);
+      const pageTitle = titleMatch ? titleMatch[1].trim() : "Apex Digital Website";
+
+      if (!/<meta[^>]*property=["']og:title["']/i.test(content) && content.includes("</head>")) {
+        content = content.replace(/<\/head>/i, `  <meta property="og:title" content="${pageTitle.replace(/"/g, '&quot;')}">\n  <meta property="og:type" content="website">\n</head>`);
+        repairLogs.push(`إضافة وسوم OpenGraph في ${file.path}`);
+        fileModified = true;
+      }
+
+      // Schema.org JSON-LD
       if (!/<script[^>]*type=["']application\/ld\+json["']/i.test(content) && content.includes("</head>")) {
-        const titleMatch = content.match(/<title[^>]*>(.*?)<\/title>/i);
-        const pageTitle = titleMatch ? titleMatch[1].trim() : "Apex Growth Agency";
         const schemaBlock = `
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
-    "@type": "ProfessionalService",
+    "@type": "WebPage",
     "name": "${pageTitle.replace(/"/g, '\\"')}",
-    "description": "Digital Marketing, SEO, UGC, and Social Media Growth Services",
-    "url": "https://example.com"
+    "url": "https://example.com/${file.path === 'index.html' ? '' : file.path}"
   }
   </script>`;
         content = content.replace(/<\/head>/i, `${schemaBlock}\n</head>`);
@@ -147,9 +180,9 @@ document.addEventListener('DOMContentLoaded', () => {
         fileModified = true;
       }
 
-      // 7. Fix unpopulated alt attributes in images
+      // Fix unpopulated alt attributes in images
       if (/<img(?![^>]*\balt=)[^>]*>/i.test(content)) {
-        content = content.replace(/<img(?![^>]*\balt=)([^>]*)>/gi, '<img$1 alt="Digital Marketing and Growth Illustration">');
+        content = content.replace(/<img(?![^>]*\balt=)([^>]*)>/gi, '<img$1 alt="Website Visual Asset">');
         repairLogs.push(`إصلاح وسوم الصور بإضافة خاصية alt في ${file.path}`);
         fileModified = true;
       }
