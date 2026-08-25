@@ -135,7 +135,7 @@ async function decryptValue(ciphertextB64, ivB64, secret) {
    (V1: تشخيص فقط — قراءة/كتابة تُضاف لاحقًا كخطوات منفصلة)
 ======================================== */
 
-const ALLOWED_ACTIONS = ["diagnose", "list_files", "unknown"];
+const ALLOWED_ACTIONS = ["diagnose", "list_files", "write_file", "unknown"];
 
 
 /* ========================================
@@ -258,9 +258,10 @@ export async function onRequestPost(context) {
     const prompt = `أنت مساعد داخل تطبيق إدارة مواقع، بتتكلم مع مستخدم غير تقني بالعربي.
 لازم يكون ردك بالكامل باللغة العربية الفصحى البسيطة فقط، ممنوع تستخدم أي حروف لاتينية أو ترجمة صوتية (transliteration).
 
-الإجراءات المتاحة حاليًا للتنفيذ (V2) هي إجراءان بس:
+الإجراءات المتاحة حاليًا للتنفيذ هي ثلاثة:
 - "diagnose": تشخيص فني تلقائي بالذكاء الاصطناعي لموقع معين (يفحص HTTP/DNS/TLS ويطلع مشكلة محتملة وخطوات).
-- "list_files": عرض قائمة الملفات والمجلدات الموجودة فعليًا على السيرفر (في المجلد الرئيسي للموقع)، مفيد لما المستخدم عايز يشوف/يعرف محتوى موقعه أو نوع تقنيته.
+- "list_files": عرض قائمة الملفات والمجلدات الموجودة فعليًا على السيرفر (في المجلد الرئيسي للموقع).
+- "write_file": كتابة أو إنشاء ملف جديد بمحتوى معيّن في مجلد الموقع، لما المستخدم يطلب صراحة إنشاء/كتابة/تعديل ملف ويحدد اسمه ومحتواه (مثلاً "اكتب ملف test.txt فيه كذا"، "أنشئ صفحة index.html بالمحتوى ده"). لو المستخدم طلب كتابة ملف بس مش واضح اسمه أو محتواه بالظبط، استخدم action="unknown" واطلب التوضيح، ماتخترعش محتوى من عندك.
 
 مواقع المستخدم المسجلة:
 ${sitesListText}
@@ -270,13 +271,16 @@ ${sitesListText}
 مهمتك: افهم قصد المستخدم.
 - لو طلبه يتماشى مع تشخيص موقع (مشكلة، بطء، عطل، "افحصلي"، "شخصلي"، أو أي طلب عام عن حالة الموقع)، action = "diagnose".
 - لو طلبه عن عرض/معرفة الملفات أو محتوى الموقع أو نوع تقنيته (مثلاً "ورّيني الملفات"، "الموقع فيه إيه"، "عايز أعرف الموقع مبني بإيه")، action = "list_files".
-- في الحالتين، اختار الموقع الأنسب من القائمة (لو ذكر اسمه أو جزء منه، أو لو عنده موقع واحد بس استخدمه تلقائيًا).
+- لو طلبه صريح إنه عايز يكتب/ينشئ/يعدّل ملف ومحدد اسم الملف ومحتواه بوضوح، action = "write_file"، وحط اسم الملف في "file_path" (مسار نسبي بسيط زي "test.txt" أو "css/style.css") والمحتوى كامل في "file_content".
+- في الحالات التلاتة، اختار الموقع الأنسب من القائمة (لو ذكر اسمه أو جزء منه، أو لو عنده موقع واحد بس استخدمه تلقائيًا).
 - لو طلبه مش متعلق بأي حاجة من دول، أو مش واضح أي موقع يقصد ومعندوش موقع واحد بس، رجّع action = "unknown" مع توضيح ودود بالعربي في explanation ليه معرفتش تنفذ الطلب أو محتاج توضيح إيه بالظبط.
 
 رد بصيغة JSON فقط بدون أي نص إضافي، بالشكل ده بالظبط:
 {
-  "action": "diagnose" أو "list_files" أو "unknown",
+  "action": "diagnose" أو "list_files" أو "write_file" أو "unknown",
   "site_name": "الاسم بالظبط من القائمة فوق أو null",
+  "file_path": "مسار الملف لو action=write_file وإلا null",
+  "file_content": "محتوى الملف كامل لو action=write_file وإلا null",
   "explanation": "شرح قصير وودود بالعربي الفصيح لخطتك. لو action=unknown يبقى فيه شرح ليه"
 }`;
 
@@ -339,7 +343,10 @@ ${sitesListText}
     let action = ALLOWED_ACTIONS.includes(plan?.action) ? plan.action : "unknown";
     let matchedSite = null;
 
-    if (action === "diagnose" || action === "list_files") {
+    let filePath = "";
+    let fileContent = "";
+
+    if (action === "diagnose" || action === "list_files" || action === "write_file") {
       if (sites.length === 1) {
         // عنده موقع واحد بس - مفيش داعي نعتمد على الموديل يكتب الاسم بالظبط
         matchedSite = sites[0];
@@ -357,12 +364,23 @@ ${sitesListText}
       if (!matchedSite) {
         action = "unknown";
       }
+
+      if (action === "write_file") {
+        filePath = String(plan?.file_path || "").trim();
+        fileContent = typeof plan?.file_content === "string" ? plan.file_content : "";
+
+        if (!filePath || !fileContent) {
+          action = "unknown";
+        }
+      }
     }
 
     return Response.json({
       success: true,
       action,
       site: matchedSite ? { id: matchedSite.id, name: matchedSite.name, hostname: matchedSite.check_url } : null,
+      file_path: action === "write_file" ? filePath : null,
+      file_content: action === "write_file" ? fileContent : null,
       explanation: String(plan?.explanation || "").trim() || "تمام، جاهز أنفّذ."
     });
   } catch (error) {
