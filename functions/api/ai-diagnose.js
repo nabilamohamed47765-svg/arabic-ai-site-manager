@@ -54,8 +54,7 @@ ${JSON.stringify(healthData, null, 2)}
           "Authorization": `Bearer ${apiKey}`
         },
         body: JSON.stringify({
-          model: "openai/gpt-oss-20b:free",
-          models: ["openai/gpt-oss-20b:free", "meta-llama/llama-3.3-70b-instruct:free"],
+          model: "openrouter/free",
           messages: [{ role: "user", content: prompt }]
         })
       }
