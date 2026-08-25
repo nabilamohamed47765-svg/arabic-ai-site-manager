@@ -1,0 +1,351 @@
+name: SSH Write File
+
+on:
+  workflow_dispatch:
+    inputs:
+      request_id:
+        description: "Write Request ID"
+        required: true
+        type: string
+
+jobs:
+  ssh-write:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install SSH tools
+        run: |
+          set -e
+          sudo apt-get update
+          sudo apt-get install -y openssh-client sshpass
+          npm install --global wrangler@latest
+
+      - name: Validate request ID
+        env:
+          REQUEST_ID: ${{ inputs.request_id }}
+        run: |
+          set -e
+          if [[ ! "$REQUEST_ID" =~ ^[A-Za-z0-9_-]{20,100}$ ]]; then
+            echo "Invalid request_id"
+            exit 1
+          fi
+
+      - name: Read request from D1
+        id: request
+        env:
+          REQUEST_ID: ${{ inputs.request_id }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -e
+
+          python3 <<'PY'
+          import os
+          import subprocess
+          import json
+          from datetime import datetime, timezone
+
+          request_id = os.environ["REQUEST_ID"]
+
+          def sql_escape(value):
+              return value.replace("'", "''")
+
+          sql = f"""
+          SELECT
+            r.id,
+            r.status,
+            r.operation,
+            r.target_path,
+            r.file_content,
+            r.overwrite_confirmed,
+            r.site_id,
+            r.user_id,
+            r.expires_at,
+            s.hostname,
+            s.port,
+            s.username,
+            s.ssh_password_ciphertext,
+            s.ssh_password_iv
+          FROM ssh_requests r
+          JOIN sites s
+            ON s.id = r.site_id
+          WHERE r.id = '{sql_escape(request_id)}'
+          LIMIT 1
+          """
+
+          result = subprocess.run(
+              ["wrangler", "d1", "execute", "DB", "--remote", "--json", "--command", sql],
+              capture_output=True, text=True, check=False
+          )
+
+          if result.returncode != 0:
+              print(result.stderr)
+              raise SystemExit(result.returncode)
+
+          data = json.loads(result.stdout)
+          rows = []
+
+          for item in data:
+              if isinstance(item, dict) and "results" in item:
+                  rows.extend(item["results"])
+
+          if not rows:
+              raise SystemExit("Write request not found")
+
+          row = rows[0]
+
+          required = ["hostname", "port", "username", "ssh_password_ciphertext", "ssh_password_iv", "target_path"]
+
+          for field in required:
+              if not row.get(field):
+                  raise SystemExit(f"Missing field: {field}")
+
+          if row.get("status") not in ["pending", "running"]:
+              raise SystemExit("Invalid request status: " + str(row.get("status")))
+
+          if row.get("operation") != "write":
+              raise SystemExit("Unsupported operation: " + str(row.get("operation")))
+
+          if row.get("expires_at"):
+              expires = datetime.fromisoformat(row["expires_at"].replace("Z", "+00:00"))
+
+              if expires < datetime.now(timezone.utc):
+                  raise SystemExit("Request expired")
+
+          target_path = str(row["target_path"])
+
+          if ".." in target_path.split("/"):
+              raise SystemExit("Unsafe target_path rejected")
+
+          file_content = row.get("file_content")
+          if file_content is None:
+              file_content = ""
+
+          with open("/tmp/write_content.txt", "w", encoding="utf-8") as f:
+              f.write(str(file_content))
+
+          overwrite_confirmed = "1" if str(row.get("overwrite_confirmed")) == "1" else "0"
+
+          output = {
+              "hostname": str(row["hostname"]),
+              "port": str(int(row["port"])),
+              "username": str(row["username"]),
+              "ciphertext": str(row["ssh_password_ciphertext"]),
+              "iv": str(row["ssh_password_iv"]),
+              "target_path": target_path,
+              "overwrite_confirmed": overwrite_confirmed
+          }
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+              for key, value in output.items():
+                  f.write(f"{key}<<EOF\nEOF_END_{key}\n{value}\nEOF_END_{key}\nEOF\n" if False else f"{key}<<EOF\n{value}\nEOF\n")
+
+          print("Write request loaded successfully.")
+          PY
+
+      - name: Decrypt SSH password
+        id: decrypt
+        env:
+          SSH_ENCRYPTION_KEY: ${{ secrets.SSH_ENCRYPTION_KEY }}
+          SSH_CIPHERTEXT: ${{ steps.request.outputs.ciphertext }}
+          SSH_IV: ${{ steps.request.outputs.iv }}
+        run: |
+          set -e
+
+          node <<'NODE'
+          const crypto = require("crypto");
+          const fs = require("fs");
+
+          const secret = process.env.SSH_ENCRYPTION_KEY;
+          const ciphertext = Buffer.from(process.env.SSH_CIPHERTEXT, "base64");
+          const iv = Buffer.from(process.env.SSH_IV, "base64");
+
+          const key = crypto.createHash("sha256").update(secret, "utf8").digest();
+          const tagLength = 16;
+
+          const encrypted = ciphertext.subarray(0, ciphertext.length - tagLength);
+          const authTag = ciphertext.subarray(ciphertext.length - tagLength);
+
+          const decipher = crypto.createDecipheriv(`aes-${key.length * 8}-gcm`, key, iv);
+          decipher.setAuthTag(authTag);
+
+          const password = Buffer.concat([decipher.update(encrypted), decipher.final()]).toString("utf8");
+
+          if (!password) {
+            throw new Error("SSH password is empty");
+          }
+
+          console.log("::add-mask::" + password);
+
+          fs.appendFileSync(process.env.GITHUB_ENV, `SSHPASS=${password}\n`, { encoding: "utf8" });
+          NODE
+
+      - name: Write remote file
+        id: ssh
+        env:
+          SSHPASS: ${{ env.SSHPASS }}
+          SSH_HOST: ${{ steps.request.outputs.hostname }}
+          SSH_PORT: ${{ steps.request.outputs.port }}
+          SSH_USER: ${{ steps.request.outputs.username }}
+          TARGET_PATH: ${{ steps.request.outputs.target_path }}
+          OVERWRITE_CONFIRMED: ${{ steps.request.outputs.overwrite_confirmed }}
+        run: |
+          set +e
+
+          EXISTS_CHECK=$(
+            sshpass -e ssh \
+              -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=20 \
+              -o ConnectionAttempts=1 \
+              -p "$SSH_PORT" \
+              "$SSH_USER@$SSH_HOST" \
+              "test -f -- $(printf '%q' "$TARGET_PATH") && echo __EXISTS__ || echo __MISSING__" \
+              2>&1
+          )
+
+          echo "---- فحص وجود الملف ----"
+          echo "$EXISTS_CHECK"
+          echo "-------------------------"
+
+          if echo "$EXISTS_CHECK" | grep -q "__EXISTS__" && [ "$OVERWRITE_CONFIRMED" != "1" ]; then
+            echo "needs_confirmation=true" >> "$GITHUB_OUTPUT"
+            echo "الملف موجود بالفعل، محتاج تأكيد صريح قبل الاستبدال" > /tmp/ssh_output.txt
+            echo "result=needs_confirmation" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "needs_confirmation=false" >> "$GITHUB_OUTPUT"
+
+          WRITE_OUTPUT=$(
+            sshpass -e ssh \
+              -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=20 \
+              -o ConnectionAttempts=1 \
+              -p "$SSH_PORT" \
+              "$SSH_USER@$SSH_HOST" \
+              "cat > $(printf '%q' "$TARGET_PATH")" \
+              < /tmp/write_content.txt \
+              2>&1
+          )
+
+          EXIT_CODE=$?
+
+          echo "exit_code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
+          echo "$WRITE_OUTPUT" > /tmp/ssh_output.txt
+
+          echo "---- تفاصيل نتيجة كتابة الملف ----"
+          echo "exit code: $EXIT_CODE"
+          echo "$WRITE_OUTPUT"
+          echo "-------------------------------"
+
+          if [ "$EXIT_CODE" -eq 0 ]; then
+            echo "result=success" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "result=failure" >> "$GITHUB_OUTPUT"
+          exit 1
+
+      - name: Save successful result in D1
+        if: success()
+        env:
+          REQUEST_ID: ${{ inputs.request_id }}
+          NEEDS_CONFIRMATION: ${{ steps.ssh.outputs.needs_confirmation }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -e
+
+          python3 <<'PY'
+          import os
+          import subprocess
+
+          request_id = os.environ["REQUEST_ID"]
+          needs_confirmation = os.environ.get("NEEDS_CONFIRMATION") == "true"
+
+          def sql_escape(value):
+              return value.replace("'", "''")
+
+          with open("/tmp/ssh_output.txt", "r", encoding="utf-8", errors="replace") as f:
+              output_text = f.read()[:4000]
+
+          if needs_confirmation:
+              sql = f"""
+              UPDATE ssh_requests
+              SET
+                status = 'needs_confirmation',
+                output = NULL,
+                error = '{sql_escape(output_text)}',
+                completed_at = CURRENT_TIMESTAMP
+              WHERE id = '{sql_escape(request_id)}'
+              """
+          else:
+              sql = f"""
+              UPDATE ssh_requests
+              SET
+                status = 'completed',
+                output = 'تم كتابة الملف بنجاح',
+                error = NULL,
+                completed_at = CURRENT_TIMESTAMP
+              WHERE id = '{sql_escape(request_id)}'
+              """
+
+          subprocess.run(
+              ["wrangler", "d1", "execute", "DB", "--remote", "--command", sql],
+              check=True
+          )
+
+          print("Write result saved.")
+          PY
+
+      - name: Save failed result in D1
+        if: failure()
+        env:
+          REQUEST_ID: ${{ inputs.request_id }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -e
+
+          python3 <<'PY'
+          import os
+          import subprocess
+
+          request_id = os.environ["REQUEST_ID"]
+
+          def sql_escape(value):
+              return value.replace("'", "''")
+
+          try:
+              with open("/tmp/ssh_output.txt", "r", encoding="utf-8", errors="replace") as f:
+                  output_text = f.read()[:2000]
+          except FileNotFoundError:
+              output_text = ""
+
+          sql = f"""
+          UPDATE ssh_requests
+          SET
+            status = 'failed',
+            output = NULL,
+            error = '{sql_escape("فشل تنفيذ أمر الكتابة: " + output_text)}',
+            completed_at = CURRENT_TIMESTAMP
+          WHERE id = '{sql_escape(request_id)}'
+          """
+
+          subprocess.run(
+              ["wrangler", "d1", "execute", "DB", "--remote", "--command", sql],
+              check=True
+          )
+
+          print("Failure result saved.")
+          PY
