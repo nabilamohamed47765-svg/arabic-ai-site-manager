@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Login</title>
+
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at 50% 0%, #1e1030 0%, #0a0410 60%, #050208 100%);
+      color: white;
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 360px;
+      background: #14091f;
+      padding: 34px 25px;
+      border-radius: 18px;
+      box-sizing: border-box;
+      border: 1px solid #3b1a55;
+      box-shadow: 0 0 60px rgba(139, 0, 255, 0.3);
+      text-align: center;
+    }
+
+    .skull {
+      font-size: 72px;
+      line-height: 1;
+      margin-bottom: 16px;
+      filter: drop-shadow(0 0 20px rgba(168, 85, 247, 0.9));
+    }
+
+    input,
+    button {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 14px;
+      margin-top: 12px;
+      border-radius: 10px;
+      border: 0;
+      font-size: 16px;
+      text-align: center;
+    }
+
+    input {
+      background: #1f0f30;
+      color: white;
+      outline: none;
+      border: 1px solid #4c2270;
+    }
+
+    input:focus {
+      outline: 2px solid #a855f7;
+    }
+
+    button {
+      background: linear-gradient(135deg, #7c3aed, #c026d3);
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 18px;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    #result {
+      margin-top: 14px;
+      font-size: 13px;
+      color: #fca5a5;
+      min-height: 18px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="card">
+
+    <div class="skull">💀</div>
+
+    <input
+      id="email"
+      type="email"
+      placeholder="Username"
+      autocomplete="email"
+    >
+
+    <input
+      id="password"
+      type="password"
+      placeholder="Password"
+      autocomplete="current-password"
+    >
+
+    <button onclick="login()">
+      Login
+    </button>
+
+    <div id="result"></div>
+
+  </div>
+
+<script>
+
+const result = document.getElementById("result");
+
+function show(text) {
+  result.textContent = text;
+}
+
+
+async function login() {
+
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value;
+
+  if (!email || !password) {
+    show("اكتب الـ Username وكلمة المرور أولًا.");
+    return;
+  }
+
+  show("جاري تسجيل الدخول...");
+
+  try {
+
+    const response = await fetch(
+      "/api/auth/login",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password })
+      }
+    );
+
+    const data = await response.json();
+
+    if (response.ok && data.token) {
+      localStorage.setItem("arabic_ai_token", data.token);
+      window.location.href = "/dashboard";
+      return;
+    }
+
+    show(data.error || "بيانات الدخول غير صحيحة.");
+
+  } catch (error) {
+    show("تعذر الاتصال بالسيرفر.");
+  }
+}
+
+
+document.getElementById("password").addEventListener(
+  "keydown",
+  (event) => {
+    if (event.key === "Enter") {
+      login();
+    }
+  }
+);
+
+</script>
+
+</body>
+</html>
